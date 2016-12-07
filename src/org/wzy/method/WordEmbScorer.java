@@ -123,5 +123,12 @@ public class WordEmbScorer implements ScoringInter{
 		
 		return 0;
 	}
+
+	@Override
+	public void PreProcessingQuestions(List<Question> qList) {
+		// TODO Auto-generated method stub
+		// you can process questions to map the word to the embeddings, and find unknown words
+		
+	}
 	
 }

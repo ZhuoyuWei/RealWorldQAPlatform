@@ -16,5 +16,11 @@ public class SimpleCluster implements QAClusterInter{
 	@Override
 	public void ProduceClusterFeatures(List<Question> questionList)
 	{}
+
+	@Override
+	public void PreProcessingQuestions(List<Question> qList) {
+		// TODO Auto-generated method stub
+		
+	}
 	
 }

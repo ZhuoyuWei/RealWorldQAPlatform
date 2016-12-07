@@ -12,6 +12,8 @@ import org.wzy.tool.CoreNLPTool;
 import org.wzy.tool.ParserTool;
 
 import edu.stanford.nlp.ling.CoreAnnotations;
+import edu.stanford.nlp.ling.CoreAnnotations.PartOfSpeechAnnotation;
+import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.semgraph.SemanticGraph;
 import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations;
 import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations.BasicDependenciesAnnotation;
@@ -46,6 +48,9 @@ public class Question {
 	public List<GrammaticalStructure> question_de_structure;
 	public List<CoreMap>[] answer_stan_sentences;
 	public List<GrammaticalStructure>[] answer_de_structures;
+	
+	//For cluster features
+	public String bagofword_feature_string=null;
 	
 	////////////////////Method///////////////////////////
 	public void AI2ParsingString(String content)
@@ -192,17 +197,24 @@ public class Question {
 			for(int i=0;i<question_stan_sentences.size();i++)
 			{
 				CoreMap sentence=question_stan_sentences.get(i);
-				SemanticGraph sg=sentence.get(BasicDependenciesAnnotation.class);
-				Collection<TypedDependency> collect_td=sg.typedDependencies();
+				//SemanticGraph sg=sentence.get(BasicDependenciesAnnotation.class);
+				//Collection<TypedDependency> collect_td=sg.typedDependencies();
+				List<CoreLabel> labelList=sentence.get(CoreAnnotations.TokensAnnotation.class);
+				
+				for(int j=0;j<labelList.size();j++)
+				{
+					CoreLabel cl=labelList.get(j);
+					String wordtag=cl.tag();
+					System.out.println(cl.lemma()+"\t"+wordtag);
+				}
+	
+
 				//sg.
 				//String tmp=GrammaticalStructure.dependenciesToCoNLLXString(collect_td, sentence);
 				//Tree tree=
 				//sb.append("<item>");
 				//sb.append(tmp);
-				for(int j=0;j<collect_td.size();j++)
-				{
-					
-				}
+				
 				sb.append("</item>");				
 			}
 			sb.append("</ques>");

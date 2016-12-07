@@ -57,6 +57,8 @@ public class QAFramework {
 			System.exit(-1);
 		}
 		
+		scorer.PreProcessingQuestions(qList);
+		
 		int[] res=new int[qList.size()];
 		for(int i=0;i<qList.size();i++)
 		{

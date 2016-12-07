@@ -29,7 +29,7 @@ public class QAExperimentPlatform {
 	public static void main(String[] args) throws InstantiationException, IllegalAccessException, ClassNotFoundException
 	{
 		//question for test
-		List<Question> questionList=IOTool.ReadSimpleQuestionsCVS(args[0], "ascii");
+		List<Question> questionList=IOTool.ReadSimpleQuestionsCVS(args[0], "utf8");
 		
 		QAFramework qaframe=new QAFramework();
 		int modelindex=Integer.parseInt(args[1]);

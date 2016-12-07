@@ -23,7 +23,8 @@ public class ReadAndPrintQAGrammer {
 
 	
 	public List<Question> questionList;
-	public String stan_pipeline="tokenize, ssplit, pos, lemma, depparse";
+	//public String stan_pipeline="tokenize, ssplit, pos, lemma, depparse";
+	public String stan_pipeline="tokenize, ssplit, pos,lemma";
 	
 	public void GetQuestionGrammer()
 	{
@@ -84,15 +85,15 @@ public class ReadAndPrintQAGrammer {
 		CoreNLPTool.CreateUniqueObject();
 		CoreNLPTool.UniqueObject.InitTool(rp.stan_pipeline);
 		rp.GetQuestionGrammer();
-		//rp.PrintQuestionDependency(outputfile,code);
+		rp.PrintQuestionDependency(outputfile,code);
 		
-		FileOutputStream fos=new FileOutputStream(outputfile);
+		/*FileOutputStream fos=new FileOutputStream(outputfile);
 		ObjectOutputStream outobj=new ObjectOutputStream(fos);
 		rp.PrintQACoreMap(outobj);
 		outobj.close();
 		
 		List<CoreMap> tmpcmList=rp.testRead(outputfile);
-		System.out.println(tmpcmList.size());
+		System.out.println(tmpcmList.size());*/
 		
 	}
 

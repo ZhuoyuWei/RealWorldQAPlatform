@@ -8,7 +8,9 @@ import java.util.Map;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.cn.smart.SmartChineseAnalyzer;
+import org.apache.lucene.analysis.core.SimpleAnalyzer;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -19,6 +21,8 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.FSDirectory;
 import org.wzy.meta.Question;
+import org.wzy.tool.IOTool;
+import org.wzy.tool.StringTool;
 
 public class LuceneScorer implements ScoringInter{
 
@@ -36,7 +40,9 @@ public class LuceneScorer implements ScoringInter{
 			searcher = new IndexSearcher(reader);
 			//Analyzer analyzer = new ComplexAnalyzer();
 			//Analyzer analyzer=new SmartChineseAnalyzer();
-			Analyzer analyzer=new EnglishAnalyzer();
+			//Analyzer analyzer=new EnglishAnalyzer();
+			//Analyzer analyzer=new StandardAnalyzer();
+			Analyzer analyzer=new SimpleAnalyzer();
 			String field = "contents";
 			parser = new QueryParser(field, analyzer);
 			parser.setAllowLeadingWildcard(true);
@@ -100,6 +106,45 @@ public class LuceneScorer implements ScoringInter{
 		double score=ScoreByLucene(querystr,maxpagesize);
 		return score;
 	}
+
+	@Override
+	public void PreProcessingQuestions(List<Question> qList) {
+		// TODO Auto-generated method stub
+		for(int i=0;i<qList.size();i++)
+		{
+			Question q=qList.get(i);
+			
+			//for question's content
+			String question_content=q.question_content;
+			//replace question tab at the beginning: 1 .
+			String[] ss=question_content.split("[\\s]+");
+			if(ss.length>2&&ss[0].matches("[0-9]+")&&(ss[1].equals(".")||ss[1].equals("-rrb-")))
+			{
+				question_content=StringTool.JoinStrings(ss, 2, " ");
+			}
+			//replace space line
+			question_content=question_content.replaceAll("[_]+", "what");
+			//replace number
+			question_content=question_content.replaceAll("-?[0-9]+\\.?+[0-9]*", "value");
+			//replace / to divide
+			question_content=question_content.replaceAll("/", " divide ");
+			q.question_content=question_content;
+			
+			//for answers' contents
+			
+			/*for(int j=0;j<q.answers.length;j++)
+			{
+				String answer=q.answers[j];
+				
+			}*/
+		}
+	}
 	
+	public static void main(String[] args)
+	{
+		List<Question> qList=IOTool.ReadSimpleQuestionsCVS("D:\\KBQA\\DataSet\\ck12_6000\\mcqa_12.06v.little.head100", "utf8");
+		LuceneScorer ls=new LuceneScorer();
+		ls.PreProcessingQuestions(qList);
+	}
 	
 }

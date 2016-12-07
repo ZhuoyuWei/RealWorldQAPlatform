@@ -28,7 +28,7 @@ public class CoreNLPTool {
 	public void InitTool()
 	{
 		 Properties props = new Properties();
-		 props.setProperty("annotators", "tokenize, ssplit, pos, lemma, ner,");//" parse, dcoref, sentiment");
+		 props.setProperty("annotators", "tokenize, ssplit, pos, lemma, ner");//" parse, dcoref, sentiment");
 		 pipeline = new StanfordCoreNLP(props);
 	}
 	
@@ -47,12 +47,14 @@ public class CoreNLPTool {
 		List<String> reslist=new ArrayList<String>();
 		
 		List<CoreMap> sentences = annotation.get(CoreAnnotations.SentencesAnnotation.class);
+
 		if(sentences!=null)
 		{
 			for(int i=0;i<sentences.size();i++)
 			{
 				 CoreMap sentence = sentences.get(i);
 				 List<CoreLabel> tokenList=sentence.get(CoreAnnotations.TokensAnnotation.class);
+				 
 				 for(int j=0;j<tokenList.size();j++)
 				 {
 					 CoreLabel token=tokenList.get(j);
@@ -74,11 +76,24 @@ public class CoreNLPTool {
 		Annotation annotation=new Annotation(text);
 		pipeline.annotate(annotation);
 		
-		List<String> reslist=new ArrayList<String>();
-		
 		List<CoreMap> sentences = annotation.get(CoreAnnotations.SentencesAnnotation.class);
 		return sentences;
 	}	
 	
-	
+	public List<String> GetAllLemmasFromCoreMapList(List<CoreMap> coreList)
+	{
+		List<String> lemmaList=new ArrayList<String>();
+		for(int i=0;i<coreList.size();i++)
+		{
+			CoreMap sentence=coreList.get(i);
+			List<CoreLabel> tokenList=sentence.get(CoreAnnotations.TokensAnnotation.class);
+			for(int j=0;j<tokenList.size();j++)
+			{
+				String lemma=tokenList.get(j).getString(CoreAnnotations.LemmaAnnotation.class);
+				lemmaList.add(lemma);
+			}
+		}
+		return lemmaList;
+	}
+
 }
