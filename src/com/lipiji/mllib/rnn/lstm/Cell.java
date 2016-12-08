@@ -174,6 +174,9 @@ public class Cell implements Serializable {
             preC = preH.dup();
         }
         
+        //wzy debug
+        //System.out.println("x\t"+x.rows+"\t"+x.columns);
+        //System.out.println("Wxi\t"+Wxi.rows+"\t"+Wxi.columns);
         
         DoubleMatrix i = Activer.logistic(x.mmul(Wxi).add(preH.mmul(Whi)).add(preC.mmul(Wci)).add(bi));
         DoubleMatrix f = Activer.logistic(x.mmul(Wxf).add(preH.mmul(Whf)).add(preC.mmul(Wcf)).add(bf));
@@ -325,6 +328,7 @@ public class Cell implements Serializable {
             DoubleMatrix h = states[t][6];
             DoubleMatrix deltaH = null;
             if (t == lastT) {
+            	//System.out.println("wzy debug "+Why.rows+" "+Why.columns+"\t"+deltaY.rows+" "+deltaY.columns);
                 deltaH = Why.mmul(deltaY.transpose()).transpose();
             } else {
 
@@ -536,10 +540,10 @@ public class Cell implements Serializable {
             
             if(update_wordembs)
             {
-            	gx[t]=gx[t].add(Wxi.transpose().mmul(deltaIs[t]));
-            	gx[t]=gx[t].add(Wxf.transpose().mmul(deltaFs[t]));
-            	gx[t]=gx[t].add(Wxc.transpose().mmul(deltaGcs[t]));
-            	gx[t]=gx[t].add(Wxo.transpose().mmul(deltaOs[t]));   
+            	gx[t]=gx[t].add(deltaIs[t].mmul(Wxi));
+            	gx[t]=gx[t].add(deltaFs[t].mmul(Wxf));
+            	gx[t]=gx[t].add(deltaGcs[t].mmul(Wxc));
+            	gx[t]=gx[t].add(deltaOs[t].mmul(Wxo));   
             }
             
             if (t > 0) {

@@ -1,13 +1,20 @@
 package org.wzy.method;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import org.wzy.meta.NNParameter;
 import org.wzy.meta.Question;
@@ -66,20 +73,60 @@ public class WordEmbScorer implements ScoringInter{
 			System.exit(-1);
 		}
 	}
+	
+	public void InitGloveEmbs(String filename,String code) throws IOException
+	{
+		BufferedReader br=new BufferedReader(new InputStreamReader(new FileInputStream(filename),code));
+		String buffer=null;
+		word2index=new HashMap<String,Integer>();
+		List<double[]> embeddingList=new ArrayList<double[]>();
+		while((buffer=br.readLine())!=null)
+		{
+			String[] ss=buffer.split(" ");
+			String token=ss[0];
+			
+			Integer index=word2index.get(token);
+			if(index!=null)
+				continue;
+			
+			double[] emb=new double[dim];
+			for(int i=0;i<dim;i++)
+			{
+				emb[i]=Double.parseDouble(ss[i+1]);
+			}
+
+			embeddingList.add(emb);
+			word2index.put(token,word2index.size());
+		}
+		br.close();
+		
+		embeddings=embeddingList.toArray(new double[0][]);
+		
+		if(word2index.size()!=embeddings.length)
+		{
+			System.err.println("there is a different number of words in embedding file.");
+			System.exit(-1);
+		}
+		
+	}
 
 	
 
 	@Override
 	public void InitScorer(Map<String, String> paraMap) {
 		// TODO Auto-generated method stub
-		
+		dim=Integer.parseInt(paraMap.get("dim"));
 		String embfile=paraMap.get("embfile");
 		try {
-			InitEmbs(embfile);
+			if(embfile!=null)
+				InitGloveEmbs(embfile,"utf8");
+			//InitEmbs(embfile);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		
 		
 		String textModel=paraMap.get("textModel");
 		NNParameter nnpara=new NNParameter();
@@ -100,18 +147,55 @@ public class WordEmbScorer implements ScoringInter{
 		textpre.SetParameters(paraMap);
 	}
 
+	
+	int zerolength=0;
+	double length_rate=0;
+	int sumcount=0;
+	public void wzy_debug_ZeroPrint()
+	{
+		System.out.println("zero number is "+zerolength);
+		System.out.println("zero rate is "+(double)zerolength/(double)sumcount);
+		System.out.println("find rate is "+length_rate/(double)sumcount);
+		
+		System.out.println("unknown words is "+unknownwordSet.size());
+		try {
+			PrintStream ps=new PrintStream("wordSet.list");
+			Iterator it=unknownwordSet.iterator();
+			while(it.hasNext())
+			{
+				String token=(String)it.next();
+				ps.println(token);
+			}
+			ps.close();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	Set<String> unknownwordSet=new HashSet<String>();
+	
 	public double[][] Text2Embs(String str)
 	{
 		List<double[]> embList=new ArrayList<double[]>();
-		String[] ss=str.split("\t");
+		String[] ss=str.split("[\\s]+");
+		int hasword=0;
 		for(int i=0;i<ss.length;i++)
 		{
-			Integer index=word2index.get(ss[i]);
+			Integer index=word2index.get(ss[i].trim().toLowerCase());
 			if(index!=null)
 			{
 				embList.add(embeddings[index]);
+				hasword++;
+			}
+			else
+			{
+				unknownwordSet.add(ss[i].trim().toLowerCase());
 			}
 		}
+		if(embList.size()<=0)
+			zerolength++;
+		length_rate+=(double)hasword/(double)ss.length;
+		sumcount++;
 		return embList.toArray(new double[0][]);
 	}
 	
@@ -160,6 +244,7 @@ public class WordEmbScorer implements ScoringInter{
 		double[][] qus_words_embs=Text2Embs(q.question_content);
 		double[] qus_embs=textpre.RepresentText(qus_words_embs, dim);
 		double[] neg_qus_embs=new double[qus_embs.length];
+
 		for(int j=0;j<neg_qus_embs.length;j++)
 		{
 			neg_qus_embs[j]=-qus_embs[j];
@@ -168,6 +253,8 @@ public class WordEmbScorer implements ScoringInter{
 		//answer embeddings
 		double[][][] ans_words_embs=new double[q.answers.length][][];
 		double[][] ans_embs=new double[q.answers.length][];
+		
+		
 		
 		//score
 		for(int i=0;i<scores.length;i++)

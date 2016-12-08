@@ -19,6 +19,11 @@ public class LSTMRepresentation implements TextRepresentInter, TrainInter{
 	
 	public DoubleMatrix RepresentText(DoubleMatrix[] textEmbs)
 	{
+		if(textEmbs==null||textEmbs.length==0)
+		{
+			return new DoubleMatrix(1,lstm.getOutSize());
+		}
+		
 		DoubleMatrix[] states=null;
 		for(int i=0;i<textEmbs.length;i++)
 		{
@@ -42,7 +47,8 @@ public class LSTMRepresentation implements TextRepresentInter, TrainInter{
 		DoubleMatrix[] textDms=new DoubleMatrix[textEmbs.length];
 		for(int i=0;i<textEmbs.length;i++)
 		{
-			textDms[i]=new DoubleMatrix(textEmbs[i]);
+			textDms[i]=(new DoubleMatrix(textEmbs[i])).transpose();
+			//System.out.println("debug "+textDms[i].rows+" "+textDms[i].columns+" "+textEmbs[i].length);
 		}
 		return textDms;
 	}
@@ -97,8 +103,11 @@ public class LSTMRepresentation implements TextRepresentInter, TrainInter{
 	public void CalculateGradient(double[][] words_embs, double[] loss) {
 		// TODO Auto-generated method stub
 		
+		if(words_embs==null||words_embs.length<=0)
+			return;
+		
 		DoubleMatrix[] words_dms=doubles2DMs(words_embs);
-		DoubleMatrix loss_dms=new DoubleMatrix(loss);
+		DoubleMatrix loss_dms=(new DoubleMatrix(loss)).transpose();
 		
 		//forward
 		DoubleMatrix[][] states=new DoubleMatrix[words_embs.length][];

@@ -1,12 +1,16 @@
 package org.wzy.fun;
 
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 
 import org.wzy.meta.*;
 import org.wzy.method.ScoringInter;
+import org.wzy.method.TrainInter;
 
 class IndexAndScore implements Comparator
 {
@@ -31,18 +35,24 @@ class IndexAndScore implements Comparator
 public class QAFramework {
 
 	public ScoringInter scorer=null;
+	public TrainModel trainModel=null;
 	
-	
+	public List<double[]> debug_scoreList=new ArrayList<double[]>(); 
 	public int AnswerOneQuestion(Question q)
 	{
 		List<IndexAndScore> iasList=new ArrayList<IndexAndScore>();
+		double[] debug_score_record=new double[q.answers.length];
 		for(int i=0;i<q.answers.length;i++)
 		{
 			IndexAndScore ias=new IndexAndScore();
 			ias.index=i;
 			ias.score=scorer.ScoreQAPair(q, i);
 			iasList.add(ias);
+			
+			debug_score_record[i]=ias.score;
 		}
+		if(predict_train)
+			debug_scoreList.add(debug_score_record);
 		
 		Collections.sort(iasList,new IndexAndScore());
 		
@@ -67,6 +77,16 @@ public class QAFramework {
 		return res;
 	}
 	
+	public int[] GetAnswers(List<Question> qList)
+	{
+		int[] ans=new int[qList.size()];
+		for(int i=0;i<qList.size();i++)
+		{
+			ans[i]=qList.get(i).AnswerKey;
+		}
+		return ans;
+	}
+	
 	public double Evluation(int[] results,int[] answers)
 	{
 		if(results.length!=answers.length)
@@ -87,5 +107,123 @@ public class QAFramework {
 	}
 	
 	
+	
+	///////////////////training//////////////////////////////
+	public boolean L1regular=false;
+	public boolean project=false;
+	public boolean trainprintable=false;//true;	
+	public Random rand=new Random();	
+	public int Epoch=100;
+	public int minibranchsize=64;
+	public double gamma=0.01;
+	public double margin=1.;
+	public int random_data_each_epoch=10000;
+	public boolean bern=false;//true;//false;//true;
+	public double lammadaL1=0.;
+	public double lammadaL2=0;
+	public String printMiddleModel_dir=null;
+	public int printEpoch=100;
+	//for debug
+	public int errcount=0;
+	public boolean quiet=false;
+	public boolean predict_train=true;
+	public String print_log_file=null;
+	public TrainInter trainInter;
+	public String debug_score_record_dir="./";
+	
+	public void Training(List<Question> qList)
+	{
+		scorer.PreProcessingQuestions(qList);
+		Question[] traindatas=qList.toArray(new Question[0]);
+		
+		int branch=traindatas.length/minibranchsize;
+		//if(traindatas.length%minibranchsize>0) //if the size of minibranch didn't touch minibranch size
+			//branch++;
+		double lasttrain_point_err=Double.MAX_VALUE;
+		double lasttrain_pair_err=Double.MAX_VALUE;				
+		double lastvalid_point_err=Double.MAX_VALUE;
+		double lastvalid_pair_err=Double.MAX_VALUE;	
+		for(int epoch=0;epoch<Epoch;epoch++)
+		{
+			//Disrupt the order of training data set
+			long start=System.currentTimeMillis();
+			for(int i=0;i<random_data_each_epoch;i++)
+			{
+				int a=Math.abs(rand.nextInt())%traindatas.length;
+				int b=Math.abs(rand.nextInt())%traindatas.length;	
+				Question tmp=traindatas[a];
+				traindatas[a]=traindatas[b];
+				traindatas[b]=tmp;
+			}
+			
+			for(int i=0;i<branch;i++)
+			{
+				int sindex=i*minibranchsize;
+				int eindex=(i+1)*minibranchsize-1;
+				if(eindex>=traindatas.length)
+					eindex=traindatas.length-1;
+				trainInter.InitGradients();
+				OneBranchTraining(traindatas,sindex,eindex);	
+			}
+			long end=System.currentTimeMillis();
+			
+			if(predict_train)
+			{
+				int[] results=AnswerQuestions(qList);
+				int[] ans=GetAnswers(qList);
+				double score=Evluation(results, ans);
+				
+				if(debug_score_record_dir!=null)
+				{
+					PrintScoreList(debug_score_record_dir+epoch+"score");
+				}
+				debug_scoreList=new ArrayList<double[]>();
+				System.err.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s\t+rate is "+score);
+			}
+			else
+			{
+				System.err.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s");
+			}
+		}
+	}
+	
+	public void PrintScoreList(String filename)
+	{
+		try {
+			PrintStream ps=new PrintStream(filename);
+			for(int i=0;i<debug_scoreList.size();i++)
+			{
+				double[] scores=debug_scoreList.get(i);
+				for(int j=0;j<scores.length;j++)
+				{
+					ps.print(scores[j]+"\t");
+				}
+				ps.println();
+			}
+			ps.close();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+	
+	public void OneBranchTraining(Question[] traindatas,int sindex,int eindex)
+	{
+		//List<Object> embeddingList=trainInter.ListingEmbedding();
+		//List<Object> gradientList=trainInter.ListingGradient();
+		for(int i=sindex;i<=eindex;i++)
+		{
+			//trainInter.CalculateGradient(traindatas[i]);
+			scorer.CalLoss(traindatas[i]);
+		}
+		
+		//UpgradeGradients(embeddingList,gradientList);
+		trainInter.UpgradeGradients(gamma);
+		/*if(project)
+			BallProjecting(embeddingList);
+		else
+			RegularEmbedding(traindatas,sindex,eindex);*/
+	}
 	
 }
