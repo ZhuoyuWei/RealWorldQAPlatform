@@ -125,7 +125,7 @@ public class LuceneScorer implements ScoringInter{
 			//replace space line
 			question_content=question_content.replaceAll("[_]+", "what");
 			//replace number
-			question_content=question_content.replaceAll("-?[0-9]+\\.?+[0-9]*", "value");
+			question_content=question_content.replaceAll("-?[0-9]+[\\.,]?+[0-9]*", "value");
 			//replace / to divide
 			question_content=question_content.replaceAll("/", " divide ");
 			q.question_content=question_content;
@@ -145,6 +145,24 @@ public class LuceneScorer implements ScoringInter{
 		List<Question> qList=IOTool.ReadSimpleQuestionsCVS("D:\\KBQA\\DataSet\\ck12_6000\\mcqa_12.06v.little.head100", "utf8");
 		LuceneScorer ls=new LuceneScorer();
 		ls.PreProcessingQuestions(qList);
+	}
+
+	@Override
+	public double CalLoss(Question q) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public boolean Trainable() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public TrainInter GetTrainInter() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 }

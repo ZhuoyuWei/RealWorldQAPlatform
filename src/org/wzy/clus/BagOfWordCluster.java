@@ -232,7 +232,7 @@ public class BagOfWordCluster implements QAClusterInter{
 		ps.println();
 		for(int i=0;i<index2word.size();i++)
 		{
-			ps.println("@ATTRIBUTE "+index2word.get(i)+"  NUMERIC");
+			ps.println("@ATTRIBUTE "+i+"  NUMERIC");
 		}
 		ps.println();
 		ps.println("@DATA");

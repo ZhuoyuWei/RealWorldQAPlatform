@@ -1,12 +1,18 @@
 package org.wzy.main;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.wzy.meta.Question;
+import org.wzy.method.LSTMRepresentation;
 import org.wzy.method.LuceneScorer;
 import org.wzy.method.ScoringInter;
+import org.wzy.method.SumRepresentation;
+import org.wzy.method.TrainModel;
+import org.wzy.method.WordEmbScorer;
 import org.wzy.tool.IOTool;
 import org.wzy.fun.QAFramework;
 import org.wzy.meta.*;
@@ -26,6 +32,32 @@ public class QAExperimentPlatform {
 		return ans;
 	}
 	
+	public static void TrainModel(QAFramework qaframe,Question[] train_questions)
+	{
+		TrainModel trainModel=new TrainModel();
+		
+		trainModel.scoreInter=qaframe.scorer;
+		if(!trainModel.scoreInter.Trainable())
+			return;
+		trainModel.trainInter=trainModel.scoreInter.GetTrainInter();
+		
+		trainModel.Training(train_questions);
+		
+	}
+	
+	public static Map<String,String> ReadConfigureFile(String filename) throws IOException
+	{
+		Map<String,String> paraMap=new HashMap<String,String>();
+		BufferedReader br=new BufferedReader(new FileReader(filename));
+		String buffer=null;
+		while((buffer=br.readLine())!=null)
+		{
+			String[] ss=buffer.split("\t");
+			paraMap.put(ss[0], ss[1]);
+		}
+		return paraMap;
+	}
+	
 	public static void main(String[] args) throws InstantiationException, IllegalAccessException, ClassNotFoundException
 	{
 		//question for test
@@ -43,7 +75,22 @@ public class QAExperimentPlatform {
 			qaframe.scorer.InitScorer(paraMap);
 			break;
 		}
+		case 1:{
+			qaframe.scorer=new WordEmbScorer();
+			Map<String,String> paraMap=new HashMap<String,String>();
+			paraMap.put("embfile", args[3]);
+			paraMap.put("textModel", "lstm");
+			
+			
+			
+			
+			break;
 		}
+		}
+		
+		//for train
+		TrainModel(qaframe,questionList.toArray(new Question[0]));
+		System.exit(-1);
 		
 		int[] results=qaframe.AnswerQuestions(questionList);
 		int[] ans=GetAnswers(questionList);

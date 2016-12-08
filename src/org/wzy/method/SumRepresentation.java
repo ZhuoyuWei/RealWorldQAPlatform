@@ -1,8 +1,11 @@
 package org.wzy.method;
 
+import java.util.List;
+import java.util.Map;
+
 import org.wzy.meta.NNParameter;
 
-public class SumRepresentation implements TextRepresentInter{
+public class SumRepresentation implements TextRepresentInter,TrainInter{
 
 
 	@Override
@@ -29,10 +32,29 @@ public class SumRepresentation implements TextRepresentInter{
 	}
 
 	@Override
-	public void SetParameters(NNParameter para) {
+	public void SetParameters(Map<String, String> paraMap) {
 		// TODO Auto-generated method stub
 		
 	}
+
+	@Override
+	public void CalculateGradient(double[][] words_embs, double[] loss) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void UpgradeGradients(double gamma) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void InitGradients() {
+		// TODO Auto-generated method stub
+		
+	}
+
 
 
 
