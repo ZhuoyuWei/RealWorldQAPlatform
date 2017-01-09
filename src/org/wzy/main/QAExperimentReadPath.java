@@ -23,7 +23,7 @@ import org.wzy.fun.QAFramework;
 import org.wzy.fun.TrainModel;
 import org.wzy.meta.*;
 
-public class QAExperimentPlatform {
+public class QAExperimentReadPath {
 
 	public static String[] models={"LuceneScorer"};
 	public static boolean debug_flag=true;
@@ -41,7 +41,7 @@ public class QAExperimentPlatform {
 		qaframe.Training(train_questions,valid_questions);
 		
 		//wzy_debug
-		((WordEmbScorer)qaframe.scorer).wzy_debug_ZeroPrint();
+		//((WordEmbScorer)qaframe.scorer).wzy_debug_ZeroPrint();
 	}
 	
 	public static Map<String,String> ReadConfigureFile(String filename) throws IOException
@@ -153,7 +153,7 @@ public class QAExperimentPlatform {
 			qaframe.scorer=new PathEmbScorer();
 			paraMap.put("entityFile", args[2]);
 			paraMap.put("relationFile", args[3]);
-			paraMap.put("factFile", args[4]);
+			//paraMap.put("factFile", args[4]);
 			paraMap.put("entitylink", "ngram");
 			paraMap.put("randomwalk", args[10]);
 
@@ -190,19 +190,17 @@ public class QAExperimentPlatform {
 		}
 		}
 		//for ai2 original dataset
-		qusLists[0]=IOTool.ReadSimpleQuestionsCVS(args[11], "utf8");
-		qusLists[1]=IOTool.ReadSimpleQuestionsCVS(args[12], "utf8");
+		qusLists[0]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[11]+".concept."+args[10], "utf8");
+		qusLists[1]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[12]+".concept."+args[10], "utf8");
 		questionList.clear();
 		questionList.addAll(qusLists[0]);
 		questionList.addAll(qusLists[1]);
 		System.out.println("Dataset describtion: train "+qusLists[0].size()+"\ttest "+qusLists[1].size());
 		
 		qaframe.scorer.InitScorer(paraMap);
-		qaframe.scorer.PreProcessingQuestions(questionList);
-		
-		//for debug concept paths
-		IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[0], args[11]+".concept."+args[10], "utf8");
-		IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[1], args[12]+".concept."+args[10], "utf8");		
+		//qaframe.scorer.PreProcessingQuestions(questionList);
+		//((PathEmbScorer)qaframe.scorer).RemoveNounsinQA(questionList);
+		((PathEmbScorer)qaframe.scorer).InitPathWeightRandomly(questionList);
 		
 		//test read
 		/*List<Question> tmp0=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[11]+".withpath", "utf8");
@@ -228,14 +226,23 @@ public class QAExperimentPlatform {
 		
 		//for train
 		Training(qaframe,qusLists[0],qusLists[1]);
-		System.exit(-1);
+		((PathEmbScorer)qaframe.scorer).PrintPathWeights("weight.log");
+		//System.exit(-1);
+		
+		//debug concept paths in train and test dataset, by wzy at 1.5
+		List<Question> goldQuestionList=qaframe.RightAnsweringQuestions(qusLists[0]);
+		((PathEmbScorer)qaframe.scorer).RemovePathsUseless(questionList);
+		int[] test_results=qaframe.AnswerQuestions(qusLists[1]);
+		((PathEmbScorer)qaframe.scorer).PickRightPaths2Questions(goldQuestionList, qusLists[1],test_results, "path_traintest.log");
 		
 		
 		int[] results=qaframe.AnswerQuestions(questionList);
 		int[] ans=qaframe.GetAnswers(questionList);
-		
 		double score=qaframe.Evluation(results, ans);
+		
+		
 		System.out.println("Correct rate is "+score);
+		
 	}
 	
 }

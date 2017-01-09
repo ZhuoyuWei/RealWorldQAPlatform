@@ -1,5 +1,7 @@
 package org.wzy.tool;
 
+import java.util.Random;
+
 public class MatrixTool {
 
 	public static double[][] MatrixMulti(double[][] a,double[][] b)
@@ -174,5 +176,38 @@ public class MatrixTool {
 			}
 		}
 		return res;
+	}
+	public static double PairWiseMargin(double right,double wrong,double margin)
+	{
+		return Math.max(wrong+margin-right, 0.);
+	}
+	
+	public static void ProjectL2ByRow(double[][] matrix)
+	{
+		for(int i=0;i<matrix.length;i++)
+		{
+			double tmp=VectorNorm2(matrix[i]);
+			if(tmp>1.)
+			{
+				tmp=1./tmp;
+				for(int j=0;j<matrix[i].length;j++)
+				{
+					matrix[i][j]*=tmp;
+				}
+			}
+		}
+	}
+	
+	public static double[][] RandomBuildMatrix(int row,int col,Random rand)
+	{
+		double[][] matrix=new double[row][col];
+		for(int i=0;i<row;i++)
+		{
+			for(int j=0;j<col;j++)
+			{
+				matrix[i][j]=rand.nextDouble();
+			}
+		}
+		return matrix;
 	}
 }

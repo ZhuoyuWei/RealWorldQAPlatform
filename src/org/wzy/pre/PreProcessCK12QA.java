@@ -9,10 +9,36 @@ import org.wzy.tool.IOTool;
 
 public class PreProcessCK12QA {
 
+	//int count=0;
+	
+	public String MoveLabel(String text)
+	{
+		//count++;
+		String[] ss=text.split("[\\s]+");
+		if(ss.length>0)
+		{
+			/*if(count>30000)
+			{
+				System.out.println("");
+			}*/
+			ss[0]=ss[0].replaceAll("[0-9a-zA-Z]+[\\)\\.]+", "");
+			StringBuilder sb=new StringBuilder();
+			for(int i=0;i<ss.length;i++)
+			{
+				sb.append(ss[i]+"\t");
+			}
+			return sb.toString().trim().toLowerCase();
+		}
+		else
+		{
+			return text;
+		}
+	}
 	
 	public String SimpleChangeString(String s)
-	{
-		String[] ss=CoreNLPTool.UniqueObject.Processing(s);
+	{	
+		s=MoveLabel(s);
+		String[] ss=CoreNLPTool.UniqueObject.StemProcessing(s);
 		StringBuilder sb=new StringBuilder();
 		if(ss.length<=0)
 		{
@@ -44,9 +70,32 @@ public class PreProcessCK12QA {
 		return flag;
 	}
 	
+	public void StemQuestions(String inputfile,String outputfile)
+	{
+		List<Question> questionList=IOTool.ReadSimpleQuestionsCVS(inputfile, "utf8");
+		CoreNLPTool.CreateUniqueObject();
+		CoreNLPTool.UniqueObject.InitTool("tokenize, ssplit, pos, lemma");
+		
+		for(int i=0;i<questionList.size();i++)
+		{
+			Question question=questionList.get(i);
+			question.question_content=SimpleChangeString(question.question_content);
+			for(int j=0;j<question.answers.length;j++)
+			{
+				question.answers[j]=SimpleChangeString(question.answers[j]);
+			}
+		}
+		
+		IOTool.PrintSimpleQuestions(questionList, outputfile, "utf8");
+	}
+	
 	public static void main(String[] args)
 	{
-		List<Question> questionList=IOTool.ReadSimpleQuestionsCVS(args[0], "ascii");
+		PreProcessCK12QA pp=new PreProcessCK12QA();
+		pp.StemQuestions("D:\\KBQA\\DataSet\\AI2_Large\\AI2LicensedScienceQuestions_NoDiagrams_All\\AI2LicensedScienceQuestions_NoDiagrams_All\\Exam01-MiddleSchool-NDMC-Dev.csv.simple"
+				, "D:\\KBQA\\DataSet\\AI2_Large\\AI2LicensedScienceQuestions_NoDiagrams_All\\AI2LicensedScienceQuestions_NoDiagrams_All\\Exam01-MiddleSchool-NDMC-Dev.csv.simple.stem");
+		
+		/*List<Question> questionList=IOTool.ReadSimpleQuestionsCVS(args[0], "ascii");
 		CoreNLPTool.CreateUniqueObject();
 		PreProcessCK12QA pp=new PreProcessCK12QA();
 		
@@ -68,7 +117,7 @@ public class PreProcessCK12QA {
 		
 		IOTool.PrintSimpleQuestions(yesList, args[1], "ascii");
 		IOTool.PrintSimpleQuestions(noList, args[2], "ascii");
-		IOTool.PrintSimpleQuestions(questionList, args[3], "ascii");
+		IOTool.PrintSimpleQuestions(questionList, args[3], "ascii");*/
 	}
 	
 }

@@ -69,13 +69,15 @@ public class PrintAllDependencyTrees {
 	public static void main(String[] args) throws IOException
 	{
 		PrintAllDependencyTrees pdt=new PrintAllDependencyTrees();
-		pdt.ReadAndParsing("D:\\KBQA\\DataSet\\AI2-8thGr-NDMC-Feb2016\\8thGr-NDMC-Train.csv");
-		ParserTool.CreateUniqueObject();
+		pdt.ReadAndParsing("D:\\KBQA\\DataSet\\AI2_Large\\AI2LicensedScienceQuestions_NoDiagrams_All\\AI2LicensedScienceQuestions_NoDiagrams_All\\Exam01-MiddleSchool-NDMC-Test.csv");
+		/*ParserTool.CreateUniqueObject();
 		long start=System.currentTimeMillis();
 		pdt.DeParsingAll();
 		long end=System.currentTimeMillis();
 		System.out.println("Parsing all takes "+(end-start)+" ms");
-		pdt.PrintDeQuestion("D:\\KBQA\\DataSet\\AI2-8thGr-NDMC-Feb2016\\8thGr-NDMC-Train.out");
+		pdt.PrintDeQuestion("D:\\KBQA\\DataSet\\AI2-8thGr-NDMC-Feb2016\\8thGr-NDMC-Test.out");
+		*/
+		IOTool.PrintSimpleQuestions(pdt.questionList, "D:\\KBQA\\DataSet\\AI2_Large\\AI2LicensedScienceQuestions_NoDiagrams_All\\AI2LicensedScienceQuestions_NoDiagrams_All\\Exam01-MiddleSchool-NDMC-Test.csv.simple", "utf8");
 		
 	}
 }

@@ -52,6 +52,8 @@ public class Question {
 	//For cluster features
 	public String bagofword_feature_string=null;
 	
+	//For save concept paths
+	
 	////////////////////Method///////////////////////////
 	public void AI2ParsingString(String content)
 	{
@@ -108,7 +110,7 @@ public class Question {
 		}
 		case "D":
 		{
-			AnswerKey=2;
+			AnswerKey=3;
 			break;			
 		}
 		
@@ -237,5 +239,8 @@ public class Question {
 			}
 		}
 	}
+	
+	//for path-based methods
+	public ConceptPath[][] ans_paths;
 	
 }

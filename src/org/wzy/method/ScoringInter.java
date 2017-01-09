@@ -13,4 +13,6 @@ public interface ScoringInter {
 	public double CalLoss(Question q);
 	public boolean Trainable();
 	public TrainInter GetTrainInter();
+	public void InitAllGradients();
+	public void UpgradeGradients(double gamma);
 }

@@ -36,13 +36,13 @@ public class FilterOutMoreThan4Candidate {
 	
 	public static void main(String[] args)
 	{
-		List<Question> ori_qList=IOTool.ReadSimpleQuestionsCVS("D:\\KBQA\\DataSet\\ck12_6000\\processed_5subjects\\physical-science\\physical-science_qa_11.30v.txt", "utf8");
+		List<Question> ori_qList=IOTool.ReadSimpleQuestionsCVS("D:\\KBQA\\DataSet\\ck12_6000\\processed_5subjects\\biology\\multi-choice.index", "utf8");
 		FilterOutMoreThan4Candidate fo=new FilterOutMoreThan4Candidate();
 		
 		fo.FilterQuestion(ori_qList);
 		
-		IOTool.PrintSimpleQuestions(fo.goodList,"D:\\KBQA\\DataSet\\ck12_6000\\processed_5subjects\\physical-science\\physical-science_qa_11.30v.4can", "utf8");
-		IOTool.PrintSimpleQuestions(fo.badList,"D:\\KBQA\\DataSet\\ck12_6000\\processed_5subjects\\physical-science\\physical-science_qa_11.30v.no4can", "utf8");		
+		IOTool.PrintSimpleQuestions(fo.goodList,"D:\\KBQA\\DataSet\\ck12_6000\\processed_5subjects\\biology\\biology_qa_12.22v_source.4can", "utf8");
+		IOTool.PrintSimpleQuestions(fo.badList,"D:\\KBQA\\DataSet\\ck12_6000\\processed_5subjects\\biology\\biology_qa_12.22v_source.no4can", "utf8");		
 		
 	}
 }

@@ -23,7 +23,7 @@ import org.wzy.fun.QAFramework;
 import org.wzy.fun.TrainModel;
 import org.wzy.meta.*;
 
-public class QAExperimentPlatform {
+public class IRbasedFilterQuestions {
 
 	public static String[] models={"LuceneScorer"};
 	public static boolean debug_flag=true;
@@ -189,20 +189,22 @@ public class QAExperimentPlatform {
 			
 		}
 		}
+		qaframe.scorer.InitScorer(paraMap);
+		qaframe.scorer.PreProcessingQuestions(questionList);
 		//for ai2 original dataset
-		qusLists[0]=IOTool.ReadSimpleQuestionsCVS(args[11], "utf8");
+		/*qusLists[0]=IOTool.ReadSimpleQuestionsCVS(args[11], "utf8");
 		qusLists[1]=IOTool.ReadSimpleQuestionsCVS(args[12], "utf8");
 		questionList.clear();
 		questionList.addAll(qusLists[0]);
 		questionList.addAll(qusLists[1]);
 		System.out.println("Dataset describtion: train "+qusLists[0].size()+"\ttest "+qusLists[1].size());
 		
-		qaframe.scorer.InitScorer(paraMap);
-		qaframe.scorer.PreProcessingQuestions(questionList);
+		
+		
 		
 		//for debug concept paths
 		IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[0], args[11]+".concept."+args[10], "utf8");
-		IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[1], args[12]+".concept."+args[10], "utf8");		
+		IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[1], args[12]+".concept."+args[10], "utf8");*/		
 		
 		//test read
 		/*List<Question> tmp0=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[11]+".withpath", "utf8");
@@ -227,15 +229,16 @@ public class QAExperimentPlatform {
 		
 		
 		//for train
-		Training(qaframe,qusLists[0],qusLists[1]);
+		/*Training(qaframe,qusLists[0],qusLists[1]);
 		System.exit(-1);
-		
+		*/
 		
 		int[] results=qaframe.AnswerQuestions(questionList);
 		int[] ans=qaframe.GetAnswers(questionList);
 		
 		double score=qaframe.Evluation(results, ans);
 		System.out.println("Correct rate is "+score);
+		System.out.println("error parsing "+((LuceneScorer)qaframe.scorer).parsingerror);
 	}
 	
 }

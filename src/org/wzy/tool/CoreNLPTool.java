@@ -39,7 +39,7 @@ public class CoreNLPTool {
 		 pipeline = new StanfordCoreNLP(props);		
 	}
 	
-	public String[] Processing(String text)
+	public String[] StemProcessing(String text)
 	{
 		Annotation annotation=new Annotation(text);
 		pipeline.annotate(annotation);
@@ -94,6 +94,49 @@ public class CoreNLPTool {
 			}
 		}
 		return lemmaList;
+	}
+	
+	public String RemoveNouns(String text)
+	{
+		Annotation annotation=new Annotation(text);
+		pipeline.annotate(annotation);
+		
+		List<String> reslist=new ArrayList<String>();
+		
+		List<CoreMap> sentences = annotation.get(CoreAnnotations.SentencesAnnotation.class);
+
+		StringBuilder sb=new StringBuilder();
+		int count=0;
+		if(sentences!=null)
+		{
+			for(int i=0;i<sentences.size();i++)
+			{
+				 CoreMap sentence = sentences.get(i);
+				 List<CoreLabel> tokenList=sentence.get(CoreAnnotations.TokensAnnotation.class);
+				 
+				 for(int j=0;j<tokenList.size();j++)
+				 {
+					 CoreLabel token=tokenList.get(j);
+					 
+					 //System.out.println(token.keySet()); 
+					 //String tokenstr=token.toShorterString();				 
+					 String pos=token.getString(CoreAnnotations.PartOfSpeechAnnotation.class);	 
+					 String name=token.getString(CoreAnnotations.TextAnnotation.class);	 
+					 if(!pos.startsWith("N"))
+					 {
+						 if(count==0)
+							 sb.append(name);
+						 else
+						 {
+							 sb.append(" ");
+							 sb.append(name);
+						 }
+						 count++;
+					 }
+				 }
+			}
+		}
+		return sb.toString();
 	}
 
 }

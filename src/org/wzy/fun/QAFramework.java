@@ -2,13 +2,18 @@ package org.wzy.fun;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.wzy.meta.*;
+import org.wzy.method.KBModel;
 import org.wzy.method.ScoringInter;
 import org.wzy.method.TrainInter;
 
@@ -37,16 +42,28 @@ public class QAFramework {
 	public ScoringInter scorer=null;
 	public TrainModel trainModel=null;
 	
+	//for wzy debug at 12.22
+	public int has_path_question_count=0;
+	
+	
 	public List<double[]> debug_scoreList=new ArrayList<double[]>(); 
 	public int AnswerOneQuestion(Question q)
 	{
 		List<IndexAndScore> iasList=new ArrayList<IndexAndScore>();
 		double[] debug_score_record=new double[q.answers.length];
+		
+		boolean has_path=false;
+		
 		for(int i=0;i<q.answers.length;i++)
 		{
 			IndexAndScore ias=new IndexAndScore();
 			ias.index=i;
 			ias.score=scorer.ScoreQAPair(q, i);
+			
+			//for debug by wzy, at 12.22
+			if(Math.abs(ias.score)>1e-6)
+				has_path=true;
+			
 			iasList.add(ias);
 			
 			debug_score_record[i]=ias.score;
@@ -55,6 +72,9 @@ public class QAFramework {
 			debug_scoreList.add(debug_score_record);
 		
 		Collections.sort(iasList,new IndexAndScore());
+		
+		if(has_path)
+			has_path_question_count++;
 		
 		return iasList.get(0).index;
 	}
@@ -67,13 +87,16 @@ public class QAFramework {
 			System.exit(-1);
 		}
 		
-		scorer.PreProcessingQuestions(qList);
+		//scorer.PreProcessingQuestions(qList);
 		
 		int[] res=new int[qList.size()];
 		for(int i=0;i<qList.size();i++)
 		{
 			res[i]=AnswerOneQuestion(qList.get(i));
 		}
+		
+		System.err.println("[Debug] the number of questions at least with a path is "+has_path_question_count);
+		
 		return res;
 	}
 	
@@ -113,11 +136,11 @@ public class QAFramework {
 	public boolean project=false;
 	public boolean trainprintable=false;//true;	
 	public Random rand=new Random();	
-	public int Epoch=100;
+	public int Epoch=1000;
 	public int minibranchsize=64;
-	public double gamma=0.01;
+	public double gamma=2e-4;
 	public double margin=1.;
-	public int random_data_each_epoch=10000;
+	public int random_data_each_epoch=1000;
 	public boolean bern=false;//true;//false;//true;
 	public double lammadaL1=0.;
 	public double lammadaL2=0;
@@ -128,13 +151,13 @@ public class QAFramework {
 	public boolean quiet=false;
 	public boolean predict_train=true;
 	public String print_log_file=null;
-	public TrainInter trainInter;
+	//public TrainInter trainInter;
 	public String debug_score_record_dir="./";
 	
-	public void Training(List<Question> qList)
+	public void Training(List<Question> trainList,List<Question> validList)
 	{
-		scorer.PreProcessingQuestions(qList);
-		Question[] traindatas=qList.toArray(new Question[0]);
+		//scorer.PreProcessingQuestions(trainList);
+		Question[] traindatas=trainList.toArray(new Question[0]);
 		
 		int branch=traindatas.length/minibranchsize;
 		//if(traindatas.length%minibranchsize>0) //if the size of minibranch didn't touch minibranch size
@@ -149,8 +172,8 @@ public class QAFramework {
 			long start=System.currentTimeMillis();
 			for(int i=0;i<random_data_each_epoch;i++)
 			{
-				int a=Math.abs(rand.nextInt())%traindatas.length;
-				int b=Math.abs(rand.nextInt())%traindatas.length;	
+				int a=rand.nextInt(traindatas.length);
+				int b=rand.nextInt(traindatas.length);	
 				Question tmp=traindatas[a];
 				traindatas[a]=traindatas[b];
 				traindatas[b]=tmp;
@@ -162,15 +185,17 @@ public class QAFramework {
 				int eindex=(i+1)*minibranchsize-1;
 				if(eindex>=traindatas.length)
 					eindex=traindatas.length-1;
-				trainInter.InitGradients();
+				//trainInter.InitGradients();
+				//change by wzy at 12.27
+				scorer.InitAllGradients();
 				OneBranchTraining(traindatas,sindex,eindex);	
 			}
 			long end=System.currentTimeMillis();
 			
 			if(predict_train)
 			{
-				int[] results=AnswerQuestions(qList);
-				int[] ans=GetAnswers(qList);
+				int[] results=AnswerQuestions(trainList);
+				int[] ans=GetAnswers(trainList);
 				double score=Evluation(results, ans);
 				
 				if(debug_score_record_dir!=null)
@@ -178,7 +203,12 @@ public class QAFramework {
 					PrintScoreList(debug_score_record_dir+epoch+"score");
 				}
 				debug_scoreList=new ArrayList<double[]>();
-				System.err.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s\t+rate is "+score);
+				
+				results=AnswerQuestions(validList);
+				ans=GetAnswers(validList);
+				double validscore=Evluation(results, ans);
+				
+				System.err.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s\t+rate is "+score+"\t"+validscore);
 			}
 			else
 			{
@@ -219,11 +249,32 @@ public class QAFramework {
 		}
 		
 		//UpgradeGradients(embeddingList,gradientList);
-		trainInter.UpgradeGradients(gamma);
+		//trainInter.UpgradeGradients(gamma);
+		//changed by wzy at 2016.12.27
+		scorer.UpgradeGradients(gamma);
 		/*if(project)
 			BallProjecting(embeddingList);
 		else
 			RegularEmbedding(traindatas,sindex,eindex);*/
 	}
+	
+	
+	public List<Question> RightAnsweringQuestions(List<Question> qList)
+	{
+		int[] results=AnswerQuestions(qList);
+		int[] ans=GetAnswers(qList);
+		List<Question> rightList=new ArrayList<Question>();
+		for(int i=0;i<ans.length;i++)
+		{
+			if(results[i]==ans[i])
+			{
+				rightList.add(qList.get(i));
+			}
+		}
+		return rightList;
+	}
+	
+
+	
 	
 }

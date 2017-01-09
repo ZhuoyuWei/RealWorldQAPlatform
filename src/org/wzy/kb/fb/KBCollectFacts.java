@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.GZIPInputStream;
 
 class MidAndCount implements Comparator
 {
@@ -52,7 +53,7 @@ public class KBCollectFacts {
 			String[] ss=buffer.split("\t");
 			if(ss.length==2)
 			{
-				entitySet.add(ss[1]);
+				entitySet.add(ss[0]);
 			}
 		}
 		br.close();
@@ -64,21 +65,141 @@ public class KBCollectFacts {
 		String buffer=null;
 		//PrintStream ps=new PrintStream(outputfile);
 		PrintWriter pw=new PrintWriter(outputfile,code);
+		boolean double_direct=false;
 		while((buffer=br.readLine())!=null)
 		{
 			String[] ss=buffer.split("\t");
 			if(ss.length==3)
 			{
 				//entitySet.add(ss[1]);
-				if(entitySet.contains(ss[0])||entitySet.contains(ss[2]))
+				
+				if(double_direct)
 				{
-					pw.println(buffer);
+					if((ss[0].startsWith("g.")||ss[0].startsWith("m."))&&(ss[2].startsWith("g.")||ss[2].startsWith("m.")))
+						if(entitySet.contains(ss[0])||entitySet.contains(ss[2]))
+						{
+							pw.println(buffer);
+						}
+				}
+				else
+				{
+					if((ss[0].startsWith("g.")||ss[0].startsWith("m."))&&(ss[2].startsWith("g.")||ss[2].startsWith("m.")))
+						if(entitySet.contains(ss[0]))
+						{
+							pw.println(buffer);
+						}					
 				}
 			}
 		}
 		pw.close();
 		br.close();		
 	}
+	
+	public void ReadGZFactsAndPrint(String inputfile,String outputfile,String code) throws IOException
+	{
+		BufferedReader br=new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inputfile)),code));
+		String buffer=null;
+		//PrintStream ps=new PrintStream(outputfile);
+		PrintWriter pw=new PrintWriter(outputfile,code);
+		boolean double_direct=false;
+		//int count=0;
+		long count4space=0;
+		long countline=0;
+		while((buffer=br.readLine())!=null)
+		{
+			
+			
+			String[] ss=buffer.split("\t");
+			countline++;
+			if(ss.length==4)
+			{
+				//entitySet.add(ss[1]);
+				count4space++;
+				for(int i=0;i<3;i++)
+				{
+					String[] sss=ss[i].split("/");
+					ss[i]=sss[sss.length-1].substring(0, sss[sss.length-1].length()-1);
+				}
+				//if(count>10000)
+					//break;
+				//pw.println(ss[0]+"\t"+ss[1]+"\t"+ss[2]);
+				//count++;
+				
+				if(double_direct)
+				{
+					if((ss[0].startsWith("g.")||ss[0].startsWith("m."))&&(ss[2].startsWith("g.")||ss[2].startsWith("m.")))
+						if(entitySet.contains(ss[0])||entitySet.contains(ss[2]))
+						{
+							//pw.println(buffer);
+							pw.println(ss[0]+"\t"+ss[1]+"\t"+ss[2]);
+						}
+				}
+				else
+				{
+					if((ss[0].startsWith("g.")||ss[0].startsWith("m."))&&(ss[2].startsWith("g.")||ss[2].startsWith("m.")))
+						if(entitySet.contains(ss[0]))
+						{
+							//pw.println(buffer);
+							pw.println(ss[0]+"\t"+ss[1]+"\t"+ss[2]);
+						}					
+				}
+			}
+		}
+		System.out.println("total lines: "+countline);
+		System.out.println("4 space lines "+count4space);
+		pw.close();
+		br.close();		
+	}	
+	
+	public void ReadGZAndFileOutTypeInfo(String inputfile,String outputfile,String code) throws IOException
+	{
+		BufferedReader br=new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inputfile)),code));
+		String buffer=null;
+		//PrintStream ps=new PrintStream(outputfile);
+		PrintWriter pw=new PrintWriter(outputfile,code);
+		boolean double_direct=false;
+		//int count=0;
+		long count4space=0;
+		long countline=0;
+		while((buffer=br.readLine())!=null)
+		{
+			
+			
+			String[] ss=buffer.split("\t");
+			countline++;
+			if(ss.length==4)
+			{
+				//entitySet.add(ss[1]);
+				count4space++;
+				for(int i=0;i<3;i++)
+				{
+					String[] sss=ss[i].split("/");
+					ss[i]=sss[sss.length-1].substring(0, sss[sss.length-1].length()-1);
+				}
+				
+				boolean flag=false;
+				for(int i=0;i<3;i+=2)
+				{
+					String[] sss=ss[i].split("\\.");
+					if(sss.length>1&&!(sss[0].equals("m")||sss[0].equals("g")))
+					{
+						flag=true;
+						break;
+					}
+				}
+				if(flag)
+				{
+					pw.println(ss[0]+"\t"+ss[1]+"\t"+ss[2]);
+				}
+				
+			}
+		}
+		System.out.println("total lines: "+countline);
+		System.out.println("4 space lines "+count4space);
+		pw.close();
+		br.close();		
+	}	
+	
 	
 	public void ReadFactsAndSaveAsList(String inputfile,String outputfile,String code) throws IOException
 	{
@@ -206,50 +327,66 @@ public class KBCollectFacts {
 			if(name!=null)
 			{
 				count++;
-				ps.println(name+"\t"+mid);
+				//ps.println(name+"\t"+mid);
+				ps.println(mid+"\t"+name);
+			}
+			else
+			{
+				ps.println(mid+"\t"+name);				
 			}
 		}
 		System.out.println(count+" entities have name and the sum is "+entitySet.size());
 		ps.close();
 	}
 	
-	
+
 	
 	public static void GetFactsForEntities(String[] args) throws IOException
 	{
 		KBCollectFacts kbc=new KBCollectFacts();
-		kbc.ReadEntities(args[0], "ascii");
-		kbc.ReadFactsAndPrint(args[1], args[2], "ascii");		
+		kbc.ReadEntities(args[0], "utf8");
+		kbc.ReadGZFactsAndPrint(args[1], args[2], "utf8");	
+		//kbc.ReadGZAndFileOutTypeInfo(args[1], args[2], "utf8");	
+		//kbc.ReadFactsAndPrint(args[1], args[2], "utf8");		
+		
 	}
 	
 	public static void StatisticFactDistribution(String[] args) throws IOException
 	{
 		KBCollectFacts kbc=new KBCollectFacts();
-		kbc.ReadEntities(args[0], "ascii");
-		kbc.ReadFactsAndSaveAsList(args[1], args[2], "ascii");
+		kbc.ReadEntities(args[0], "utf8");
+		kbc.ReadFactsAndSaveAsList(args[1], args[2], "utf8");
 	}
 	
 	public static void MapMid2Names(String[] args) throws IOException
 	{
 		KBCollectFacts kbc=new KBCollectFacts();	
 		kbc.entitySet=kbc.ReadFactsCollectEntities(args[0]);
-		kbc.ReadFBNamesFromFile(args[1], "ascii");
+		kbc.ReadFBNamesFromFile(args[1], "utf8");
 		kbc.CollectEntityNames(args[2]);		
 	}
 	
 	public static void FilterAllInEntitySets(String[] args) throws IOException
 	{
 		KBCollectFacts kbc=new KBCollectFacts();	
-		kbc.ReadFBNamesFromFile(args[0], "ascii");		
+		kbc.ReadFBNamesFromFile(args[0], "utf8");		
 		kbc.FilterFactsInSet(args[1], args[2]);
 	}
+	
+
 	
 	public static void main(String[] args) throws IOException
 	{
 		//StatisticFactDistribution(args);
 		//MapMid2Names(args);
-		FilterAllInEntitySets(args);
-		//GetFactsForEntities(args);
+		//FilterAllInEntitySets(args);
+		
+		
+		
+		long start=System.currentTimeMillis();
+		GetFactsForEntities(args);
+		long end=System.currentTimeMillis();
+		System.out.println("read is over at "+ (end-start)+"ms");
 	}
 	
 }
