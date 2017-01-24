@@ -9,6 +9,8 @@ public class ConceptPath {
 	
 	public int count=0;
 	
+	public double spec_score=1.;
+	
 	@Override
 	public int hashCode()
 	{

@@ -1,4 +1,4 @@
-package org.wzy.kb.wiki;
+package org.wzy.kb.baike;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,7 +37,9 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.store.FSDirectory;
 import org.wzy.tool.CoreNLPTool;
 
-public class BuildWikiOriginalIndex {
+import com.chenlb.mmseg4j.analysis.ComplexAnalyzer;
+
+public class BuildBaikeOriginalIndex {
 	
 	public QueryParser parser=null;
 	//public IndexSearcher searcher=null;
@@ -50,7 +52,8 @@ public class BuildWikiOriginalIndex {
 			//searcher = new IndexSearcher(reader);
 			
 			Reader stopwordReader=new BufferedReader(new InputStreamReader(new FileInputStream("../data/stopwords_cn.txt"),code));
-			Analyzer analyzer=new StandardAnalyzer(stopwordReader);
+			//Analyzer analyzer=new StandardAnalyzer(stopwordReader);
+			Analyzer analyzer=new ComplexAnalyzer();
 			String field = "contents";
 			parser = new QueryParser(field, analyzer);
 			parser.setAllowLeadingWildcard(true);
@@ -69,24 +72,24 @@ public class BuildWikiOriginalIndex {
 	{	
 		Document doc = new Document();
 		doc.add(new LongPoint("modified", lastModified));
-		doc.add(new TextField("contents", doctext ,Field.Store.YES));
+		doc.add(new TextField("contents", doctext,Field.Store.YES));
 		if (writer.getConfig().getOpenMode() == OpenMode.CREATE)
 		{
 			writer.addDocument(doc);
 		} 
 	}
 
-	public void ReadWikiAndPrintPages(String inputfile,String code) throws IOException
+	public void ReadBaikeBigFileAndIndex(String inputfile,String code) throws IOException
 	{
 		BufferedReader br=new BufferedReader(new InputStreamReader(new FileInputStream(inputfile),code));
 		//PrintWriter pw=new PrintWriter(outputfile,"utf8");
 		String buffer=null;
 		StringBuilder sb=new StringBuilder();
 		String lasttitle=null;
-		//int count=0;
+		int count=0;
 		while((buffer=br.readLine())!=null)
 		{
-			String pattern="<title>(.*?)</title>";
+			String pattern="<lemmatitle>(.*?)</lemmatitle>";
 			Pattern p=Pattern.compile(pattern);
 			Matcher matcher=p.matcher(buffer);
 			if(matcher.find())
@@ -105,14 +108,17 @@ public class BuildWikiOriginalIndex {
 				sb=new StringBuilder();
 				lasttitle=title;
 				sb.append(buffer);
-				sb.append("\n");
 			}
 			else
 			{
 				sb.append(buffer);
 				sb.append("\n");
 			}
+			count++;
+			//if(count==1000)
+				//break;
 		}
+		System.out.println("Total index "+count+" pages");
 		br.close();
 		writer.close();
 	}
@@ -120,9 +126,9 @@ public class BuildWikiOriginalIndex {
 	public static void main(String[] args) throws IOException
 	{
 		long start=System.currentTimeMillis();
-		BuildWikiOriginalIndex bw=new BuildWikiOriginalIndex();
+		BuildBaikeOriginalIndex bw=new BuildBaikeOriginalIndex();
 		bw.InitLucene(args[0],"utf8");
-		bw.ReadWikiAndPrintPages(args[1],"utf8");
+		bw.ReadBaikeBigFileAndIndex(args[1],"gb2312");
 		long end=System.currentTimeMillis();
 		System.err.println("Index pages in "+(end-start)+" ms");
 	}

@@ -1,8 +1,10 @@
 package org.wzy.main;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -90,6 +92,11 @@ public class IRbasedFilterQuestions {
 		
 		//question for test
 		List<Question> questionList=IOTool.ReadSimpleQuestionsCVS(args[0], "utf8");
+		//Chinese
+		//List<Question> questionList=IOTool.ReadXMLQuestion(args[0]);
+		
+		
+		
 		List<Question>[] qusLists=SplitIntoTrainAndValid(questionList,3);
 		
 		QAFramework qaframe=new QAFramework();
@@ -102,6 +109,8 @@ public class IRbasedFilterQuestions {
 		case 0:{ 
 			qaframe.scorer=new LuceneScorer();		
 			paraMap.put("indexdir", args[2]);
+			
+			paraMap.put("parser", args[3]);
 			
 			break;
 		}
@@ -190,7 +199,7 @@ public class IRbasedFilterQuestions {
 		}
 		}
 		qaframe.scorer.InitScorer(paraMap);
-		qaframe.scorer.PreProcessingQuestions(questionList);
+		//qaframe.scorer.PreProcessingQuestions(questionList);
 		//for ai2 original dataset
 		/*qusLists[0]=IOTool.ReadSimpleQuestionsCVS(args[11], "utf8");
 		qusLists[1]=IOTool.ReadSimpleQuestionsCVS(args[12], "utf8");
@@ -233,12 +242,24 @@ public class IRbasedFilterQuestions {
 		System.exit(-1);
 		*/
 		
-		int[] results=qaframe.AnswerQuestions(questionList);
+		int[] results=qaframe.AnswerQuestionsMultiThread(questionList,32);
 		int[] ans=qaframe.GetAnswers(questionList);
+
 		
 		double score=qaframe.Evluation(results, ans);
+		
 		System.out.println("Correct rate is "+score);
 		System.out.println("error parsing "+((LuceneScorer)qaframe.scorer).parsingerror);
+		
+		try {
+			IOTool.PrintWrongQuestionIdWithPredict(questionList, args[4], "utf8");
+			IOTool.PrintQuestionsPredictScores(questionList, args[5], "utf8");
+			//IOTool.PrintQuestionSnippetFromLucene(questionList, args[5], "utf8");
+		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 	}
 	
 }

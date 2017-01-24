@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.wzy.method.ScoringInter;
 import org.wzy.method.scImpl.LuceneScorer;
+import org.wzy.method.scImpl.PathCollaborativeScorer;
 import org.wzy.method.scImpl.PathCountScorer;
 import org.wzy.method.scImpl.PathEmbScorer;
 import org.wzy.method.scImpl.PathWeightedScorer;
@@ -26,7 +27,7 @@ import org.wzy.fun.QAFramework;
 import org.wzy.fun.TrainModel;
 import org.wzy.meta.*;
 
-public class QAExperimentReadPath {
+public class PathCollPF {
 
 	public static String[] models={"LuceneScorer"};
 	public static boolean debug_flag=true;
@@ -105,59 +106,9 @@ public class QAExperimentReadPath {
 		
 		switch(modelindex)
 		{
-		//lucene searching
-		case 0:{ 
-			qaframe.scorer=new LuceneScorer();		
-			paraMap.put("indexdir", args[2]);
-			
-			break;
-		}
-		//text inference
-		case 1:{
-			qaframe.scorer=new WordEmbScorer();
-			//Map<String,String> paraMap=new HashMap<String,String>();
-			paraMap.put("embfile", args[2]);
-			//paraMap.put("textModel", "lstm");
-			paraMap.put("textModel", "gru");
-			
-			int dim=Integer.parseInt(args[3]);
-			paraMap.put("dim",args[3]);
-			
-			
-			paraMap.put("inSize", dim+"");
-			paraMap.put("outSize", dim+"");
-			
-			paraMap.put("typeLabel","0");
-		
-			paraMap.put("scale","0.1");
-			paraMap.put("miu","0");
-			paraMap.put("sigma","1");
-			
-			
-			break;
-		}
-		
-		case 2:
-		{
-			qaframe.scorer=new PathCountScorer();
-			paraMap.put("entityFile", args[2]);
-			paraMap.put("relationFile", args[3]);
-			paraMap.put("factFile", args[4]);
-			paraMap.put("entitylink", "max");
-			paraMap.put("randomwalk", "exactly");
-
-			if(debug_flag)
-			{
-				//paraMap.put("mid2name_file", args[5]);
-				paraMap.put("logfile", args[5]);
-			}
-			
-			
-			break;
-		}
 		case 3:
 		{
-			qaframe.scorer=new PathEmbScorer();
+			qaframe.scorer=new PathCollaborativeScorer();
 			paraMap.put("entityFile", args[2]);
 			paraMap.put("relationFile", args[3]);
 			//paraMap.put("factFile", args[4]);
@@ -198,30 +149,7 @@ public class QAExperimentReadPath {
 			break;
 			
 		}
-		case 4:
-		{
-			qaframe.scorer=new PathWeightedScorer();
-			paraMap.put("entityFile", args[2]);
-			paraMap.put("relationFile", args[3]);
-			//paraMap.put("factFile", args[4]);
-			paraMap.put("entitylink", "ngram");
-			
-			if(debug_flag)
-			{
-				//paraMap.put("mid2name_file", args[5]);
-				paraMap.put("logfile", args[5]);
-			}			
-			
-			paraMap.put("randomwalk", args[6]);
 
-
-			
-			traindata_file=args[7]+".concept."+args[6];
-			testdata_file=args[8]+".concept."+args[6];			
-			
-			break;
-			
-		}		
 		
 		
 		}
@@ -234,9 +162,9 @@ public class QAExperimentReadPath {
 		System.out.println("Dataset describtion: train "+qusLists[0].size()+"\ttest "+qusLists[1].size());
 		
 		qaframe.scorer.InitScorer(paraMap);
-		//qaframe.scorer.PreProcessingQuestions(questionList);
+		qaframe.scorer.PreProcessingQuestions(qusLists[0]);
 		//((PathEmbScorer)qaframe.scorer).RemoveNounsinQA(questionList);
-		qaframe.scorer.InitPathWeightRandomly(questionList);
+		//qaframe.scorer.InitPathWeightRandomly(questionList);
 		
 		//test read
 		/*List<Question> tmp0=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[11]+".withpath", "utf8");
@@ -260,13 +188,13 @@ public class QAExperimentReadPath {
 		
 		
 		
-		//for train
+		/*//for train
 		Training(qaframe,qusLists[0],qusLists[1]);
 		//((PathEmbScorer)qaframe.scorer).PrintPathWeights("weight.log");
-		//System.exit(-1);
+		System.exit(-1);
 		
 		//debug concept paths in train and test dataset, by wzy at 1.5
-		/*List<Question> goldQuestionList=qaframe.RightAnsweringQuestions(qusLists[0]);
+		List<Question> goldQuestionList=qaframe.RightAnsweringQuestions(qusLists[0]);
 		((PathEmbScorer)qaframe.scorer).RemovePathsUseless(questionList);
 		int[] test_results=qaframe.AnswerQuestions(qusLists[1]);
 		((PathEmbScorer)qaframe.scorer).PickRightPaths2Questions(goldQuestionList, qusLists[1],test_results, "path_traintest.log");*/
@@ -278,22 +206,15 @@ public class QAExperimentReadPath {
 		
 		
 		System.out.println("Correct rate is "+score);
-		
-		//IOTool.RandomPickWrongQuestionsAndPrint(qusLists[1], qusLists[0], Double.parseDouble(args[13]), traindata_file+"."+args[13], testdata_file+"."+args[13], "utf8", true);
-		
-		//print last scores
-		try {
-			IOTool.PrintQuestionsPredictScoresNormed(qusLists[1], args[13], "utf8");
+/*		try {
+			IOTool.PrintQuestionsPredictScores(qusLists[1], args[13], "utf8");
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (UnsupportedEncodingException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-		
-		
-		
+		}*/
 	}
 	
 }

@@ -323,6 +323,11 @@ public class Cell implements Serializable {
             acts.put("dy" + t, deltaY);*/
         	//Give the lost as deltaY directly;
         	DoubleMatrix deltaY=lost;
+        	if(t<lastT)
+        	{
+        		//re-calculate deltaY
+        		
+        	}
             
             // cell output errors
             DoubleMatrix h = states[t][6];

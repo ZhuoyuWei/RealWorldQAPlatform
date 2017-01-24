@@ -11,11 +11,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.wzy.meta.*;
 import org.wzy.method.KBModel;
 import org.wzy.method.ScoringInter;
 import org.wzy.method.TrainInter;
+import org.wzy.method.scImpl.LuceneScorer;
 
 class IndexAndScore implements Comparator
 {
@@ -53,7 +57,7 @@ public class QAFramework {
 		double[] debug_score_record=new double[q.answers.length];
 		
 		boolean has_path=false;
-		
+		q.scores=new double[q.answers.length];
 		for(int i=0;i<q.answers.length;i++)
 		{
 			IndexAndScore ias=new IndexAndScore();
@@ -67,6 +71,7 @@ public class QAFramework {
 			iasList.add(ias);
 			
 			debug_score_record[i]=ias.score;
+			q.scores[i]=ias.score;
 		}
 		if(predict_train)
 			debug_scoreList.add(debug_score_record);
@@ -100,6 +105,8 @@ public class QAFramework {
 		return res;
 	}
 	
+	
+	
 	public int[] GetAnswers(List<Question> qList)
 	{
 		int[] ans=new int[qList.size()];
@@ -107,6 +114,53 @@ public class QAFramework {
 		{
 			ans[i]=qList.get(i).AnswerKey;
 		}
+		return ans;
+	}
+	
+	public int[] AnswerQuestionsMultiThread(List<Question> qList,int numThread)
+	{
+		long start=System.currentTimeMillis();
+		ExecutorService exec = Executors.newFixedThreadPool(numThread); 
+		List<Callable<Integer>> alThreads=new ArrayList<Callable<Integer>>();
+		
+		LuceneScorer MainLS=(LuceneScorer)scorer;
+		
+		LuceneScorer[] scoreThreads=new LuceneScorer[numThread];
+		for(int i=0;i<scoreThreads.length;i++)
+		{
+			scoreThreads[i]=new LuceneScorer();
+			//scoreThreads[i].save_paragraphs=true;	
+			scoreThreads[i].threadid=i;
+			scoreThreads[i].InitScorer(MainLS.paraMap);
+			scoreThreads[i].qthreadList=new ArrayList<Question>();
+			alThreads.add(scoreThreads[i]);
+		}
+		
+		for(int i=0;i<qList.size();i++)
+		{
+			scoreThreads[i%numThread].qthreadList.add(qList.get(i));
+		}
+		System.out.println("question sum "+qList.size());
+		
+		try {
+			//Thread.sleep(10000);
+			exec.invokeAll(alThreads);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		exec.shutdown();
+		
+		int[] ans=new int[qList.size()];
+		for(int i=0;i<qList.size();i++)
+		{
+			ans[i]=qList.get(i).predict_answer;
+		}
+		
+		long end=System.currentTimeMillis();
+		System.out.println("IR is over at "+(end-start)+"ms");
+		
 		return ans;
 	}
 	
@@ -136,9 +190,9 @@ public class QAFramework {
 	public boolean project=false;
 	public boolean trainprintable=false;//true;	
 	public Random rand=new Random();	
-	public int Epoch=1000;
+	public int Epoch=500;
 	public int minibranchsize=64;
-	public double gamma=2e-4;
+	public double gamma=1e-4;
 	public double margin=1.;
 	public int random_data_each_epoch=1000;
 	public boolean bern=false;//true;//false;//true;
@@ -149,7 +203,7 @@ public class QAFramework {
 	//for debug
 	public int errcount=0;
 	public boolean quiet=false;
-	public boolean predict_train=true;
+	public boolean predict_train=false;
 	public String print_log_file=null;
 	//public TrainInter trainInter;
 	public String debug_score_record_dir="./";
@@ -208,11 +262,11 @@ public class QAFramework {
 				ans=GetAnswers(validList);
 				double validscore=Evluation(results, ans);
 				
-				System.err.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s\t+rate is "+score+"\t"+validscore);
+				System.out.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s\t+rate is "+score+"\t"+validscore);
 			}
 			else
 			{
-				System.err.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s");
+				System.out.println("Epoch "+epoch+" is end at "+(end-start)/1000+"s");
 			}
 		}
 	}

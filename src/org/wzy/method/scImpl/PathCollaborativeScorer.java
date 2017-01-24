@@ -22,12 +22,12 @@ import java.util.Set;
 
 import org.wzy.meta.ConceptPath;
 import org.wzy.meta.NNParameter;
+import org.wzy.meta.QAPair;
 import org.wzy.meta.Question;
 import org.wzy.method.KBModel;
 import org.wzy.method.ScoringInter;
 import org.wzy.method.TextRepresentInter;
 import org.wzy.method.TrainInter;
-import org.wzy.method.elImpl.ChineseMaxMatchLinker;
 import org.wzy.method.elImpl.MaxMatchLinker;
 import org.wzy.method.elImpl.NgramEntityLinker;
 import org.wzy.method.rwImpl.BiDirectSearchAll;
@@ -42,7 +42,7 @@ import org.wzy.tool.CoreNLPTool;
 import org.wzy.tool.IOTool;
 import org.wzy.tool.MatrixTool;
 
-public class PathEmbScorer implements ScoringInter{
+public class PathCollaborativeScorer implements ScoringInter{
 	
 	public KBModel kbModel;
 	
@@ -74,9 +74,10 @@ public class PathEmbScorer implements ScoringInter{
 	public boolean weightpath=false;
 	
 	public Random rand=new Random();
-	
-	
-
+	public Map<ConceptPath,List<QAPair>> path2qaList;
+	public Map<ConceptPath,Double> path2specScore;
+	public String[][][] collString;
+ 
 
 	//debug by wzy at 12.28
 	Map<ConceptPath,Set<String>> path2question=new HashMap<ConceptPath,Set<String>>();
@@ -176,14 +177,8 @@ public class PathEmbScorer implements ScoringInter{
 			kbm.entity_linker=new MaxMatchLinker();
 			break;
 		}
-		case "chmax":
-		{
-			kbm.entity_linker=new ChineseMaxMatchLinker();
-			break;
-		}
 		}
 		kbm.entity_linker.SetEntityAndRelationMap(kbm.entity2id, kbm.relation2id);
-		System.out.println("kbm wzy debug "+kbm.entity2id.size());
 		
 		String randomwalk=paraMap.get("randomwalk");
 		switch(randomwalk)
@@ -362,27 +357,39 @@ public class PathEmbScorer implements ScoringInter{
 		// TODO Auto-generated method stub
 		
 		//for question
-		//double[][] res_question_words=Text2Embs(qus.question_content+" "+qus.answers[aindex]);
+
 		double[][] res_question_words=Text2Embs(qus.question_content);
 		double[] rep_question=textpre.RepresentText(res_question_words, dim);
-		//double[] rep_question=textpre.RepresentText(qus.question_content, dim);
-		
-		//for concept paths
-		//ConceptPath[] paths=kbModel.MiningPaths(qus, aindex);
 		ConceptPath[] paths=qus.ans_paths[aindex];
 		
 		double score=0;
 		
 		for(int i=0;i<paths.length;i++)
 		{
-			double[][] path_relations=ConceptPath2Embs(paths[i]);
-			double[] rep_path=pathpre.RepresentText(path_relations, dim);
+			List<QAPair> qaList=path2qaList.get(paths[i]);
 			
-			double simi_score=SimilarBetweenQuestionAndPath(rep_question,rep_path);
-			
-			//if(simi_score<0)
-				//continue;
-			//if(simi_score>0)
+			if(qaList==null)
+				continue;
+			double simi_score=0.;
+			int simicount=0;
+			for(int j=0;j<qaList.size();j++)
+			{
+				if(qaList.get(j).correct)
+				{
+					double[][] sim_question_words=Text2Embs(qaList.get(j).q.question_content);
+					double[] sim_question=textpre.RepresentText(sim_question_words, dim);
+					
+					double tmpSim= MatrixTool.VectorDot(rep_question, sim_question);
+					
+					simi_score+=tmpSim;
+					simicount++;
+					//if(simi_score<tmpSim)
+						//simi_score=tmpSim;
+				}
+			}
+			if(simicount>0)
+				simi_score/=simicount;
+
 			
 			if(weightpath)
 			{
@@ -390,6 +397,12 @@ public class PathEmbScorer implements ScoringInter{
 				simi_score*=weight;
 			}
 			
+			if(path2specScore!=null)
+			{
+				Double pathspec=path2specScore.get(paths[i]);
+				if(pathspec!=null)
+					simi_score*=pathspec;
+			}
 			score+=simi_score;
 		}
 		
@@ -399,115 +412,20 @@ public class PathEmbScorer implements ScoringInter{
 	@Override
 	public void PreProcessingQuestions(List<Question> qList) {
 		// TODO Auto-generated method stub
+		//qList should be trainList
+		long start=System.currentTimeMillis();
+		this.GeneratePath2QAList(qList);
+		this.CalSpecScoreForAllConceptPaths();
+		long end=System.currentTimeMillis();
+		System.out.println("generating path 2 qa set is over at "+(end-start)+" ms");
 		
-		//random paths for each question and answer pair
-		for(int i=0;i<qList.size();i++)
-		{
-			Question question=qList.get(i);
-			question.ans_paths=new ConceptPath[question.answers.length][];
-			for(int j=0;j<question.answers.length;j++)
-			{
-				question.ans_paths[j]=kbModel.MiningPaths(question, j);
-			}
-		}
+		//pre train
+		start=end;
+		this.NormL1Embs();
+		this.PreTrain();
+		end=System.currentTimeMillis();
+		System.out.println("pre train takes "+(end -start)+" ms");
 		
-		if(remove_noun_inqa)
-		{
-			RemoveNounsinQA(qList);
-		}
-		
-		if(weightpath)
-		{
-			InitPathWeightRandomly(qList);
-		}
-		
-		//debug by wzy at 12.28
-		if(debug_print_concept_paths)
-		{
-		for(int i=0;i<qList.size();i++)
-		{
-			Question question=qList.get(i);
-			for(int j=0;j<question.answers.length;j++)
-			{
-				for(int k=0;k<question.ans_paths[j].length;k++)
-				{
-					Set<String> quesSet=path2question.get(question.ans_paths[j][k]);
-					if(quesSet==null)
-					{
-						quesSet=new HashSet<String>();
-						path2question.put(question.ans_paths[j][k], quesSet);
-					}
-					quesSet.add(question.questionID);
-				}
-				
-			}
-		}
-		
-		Iterator it=path2question.entrySet().iterator();
-		//int[] counts=new int[path2question.size()];
-		int i=0;
-		class ValueAndIndex implements Comparator
-		{
-			public int value=0;
-			public ConceptPath path;
-			@Override
-			public int compare(Object o1, Object o2) {
-				// TODO Auto-generated method stub
-				
-				ValueAndIndex vi1=(ValueAndIndex)o1;
-				ValueAndIndex vi2=(ValueAndIndex)o2;
-				
-				if(Math.abs(vi1.value-vi2.value)<1e-10)
-					return 0;
-				else if(vi1.value>vi2.value)
-					return -1;
-				else
-					return 1;
-			}
-		}
-		List<ValueAndIndex>  viList=new ArrayList<ValueAndIndex>();
-		while(it.hasNext())
-		{
-			Map.Entry entry=(Map.Entry)it.next();
-			ConceptPath path=(ConceptPath)entry.getKey();
-			Set<String> set=(Set<String>)entry.getValue();
-			//counts[i++]=set.size();
-			
-			if(set.size()<=1)
-				continue;
-			ValueAndIndex vi=new ValueAndIndex();
-			vi.path=path;
-			vi.value=set.size();
-			viList.add(vi);
-		}
-		Collections.sort(viList,new ValueAndIndex());
-		
-		
-		for(i=0;i<viList.size();i++)
-		{
-			System.out.print(viList.get(i).value);
-			for(int j=0;j<viList.get(i).path.relationList.size();j++)
-			{
-				int tmp=viList.get(i).path.relationList.get(j);
-				if(tmp>=KBModel.reverseEdge)
-				{
-					tmp-=KBModel.reverseEdge;
-					String rel=this.kbModel.id2relation.get(tmp);
-					System.out.print("\t-"+rel);
-				}
-				else
-				{
-					String rel=this.kbModel.id2relation.get(tmp);
-					System.out.print("\t"+rel);
-				}
-				
-				
-			}
-			System.out.println();
-		}
-		
-		System.exit(-1);
-		}
 	}
 
 	@Override
@@ -724,6 +642,10 @@ public class PathEmbScorer implements ScoringInter{
 			pathGradients=new double[pathWeights.length];
 		}
 	}
+	public void InitGradientsForPreTrain() {
+		// TODO Auto-generated method stub
+		((TrainInter)(this.textpre)).InitGradients();
+	}	
 
 	@Override
 	public void UpgradeGradients(double gamma) {
@@ -736,6 +658,11 @@ public class PathEmbScorer implements ScoringInter{
 		}
 		//ProjectL2();
 	}
+	public void UpgradeGradientsForPreTrain(double gamma) {
+		// TODO Auto-generated method stub
+		//((SumRepresentation)(this.textpre)).normL1=true;
+		((TrainInter)(this.textpre)).UpgradeGradients(gamma);
+	}	
 	
 	public void ProjectL2()
 	{
@@ -954,7 +881,251 @@ public class PathEmbScorer implements ScoringInter{
 		
 	}
 	
+	public void GeneratePath2QAList(List<Question> qList)
+	{
+		path2qaList=new HashMap<ConceptPath,List<QAPair>>();
+		for(int i=0;i<qList.size();i++)
+		{
+			Question q=qList.get(i);
+			Map<ConceptPath,List<Integer>> tmpMap=new HashMap<ConceptPath,List<Integer>>();
+			for(int j=0;j<q.answers.length;j++)
+			{
+				for(int k=0;k<q.ans_paths[j].length;k++)
+				{
+					List<Integer> answerList=tmpMap.get(q.ans_paths[j][k]);
+					if(answerList==null)
+					{
+						answerList=new ArrayList<Integer>();
+						tmpMap.put(q.ans_paths[j][k], answerList);
+					}
+					answerList.add(j);
+				}
+			}
+			
+			Iterator it=tmpMap.entrySet().iterator();
+			while(it.hasNext())
+			{
+				Map.Entry entry=(Map.Entry)it.next();
+				List<Integer> ans=(List<Integer>)entry.getValue();
+				if(ans.size()==1)
+				{
+					QAPair qa=new QAPair();
+					qa.q=q;
+					qa.a=ans.get(0);
+					qa.correct=q.AnswerKey==qa.a;
+					
+					ConceptPath cp=(ConceptPath)entry.getKey();
+					
+					List<QAPair> qaList=path2qaList.get(cp);
+					if(qaList==null)
+					{
+						qaList=new ArrayList<QAPair>();
+						path2qaList.put(cp, qaList);
+					}
+					qaList.add(qa);
+				}
+			}
+		}
+	}
 	
+	public void CalSpecScoreForAllConceptPaths()
+	{
+		if(path2qaList==null)
+			return;
+		
+		Map<Integer,CountInteger> rel2count=new HashMap<Integer,CountInteger>();
+		
+		Iterator it=path2qaList.entrySet().iterator();
+		while(it.hasNext())
+		{
+			Map.Entry entry=(Map.Entry)it.next();
+			ConceptPath path=(ConceptPath)entry.getKey();
+			for(int j=0;j<path.relationList.size();j++)
+			{
+				CountInteger count=rel2count.get(path.relationList.get(j));
+				if(count==null)
+				{
+					count=new CountInteger();
+					rel2count.put(path.relationList.get(j), count);
+				}
+				count.count++;
+			}
+		}
+		
+		path2specScore=new HashMap<ConceptPath,Double>();
+		while(it.hasNext())
+		{
+			Map.Entry entry=(Map.Entry)it.next();
+			ConceptPath path=(ConceptPath)entry.getKey();
+			for(int j=0;j<path.relationList.size();j++)
+			{
+				CountInteger count=rel2count.get(path.relationList.get(j));
+				if(count==null)
+					continue;
+				path.spec_score+=1./count.count;
+			}
+			path.spec_score/=path.relationList.size();
+			path2specScore.put(path, path.spec_score);
+		}		
+		
+	}
+	
+	public void PrepareToTrain()
+	{
+		this.collString=new String[path2qaList.size()][2][];
+		Iterator it=path2qaList.entrySet().iterator();
+		int count=0;
+		while(it.hasNext())
+		{
+			Map.Entry entry=(Map.Entry)it.next();
+			List<QAPair> qaList=(List<QAPair>)entry.getValue();
+			List<String> trueList=new ArrayList<String>();
+			List<String> falseList=new ArrayList<String>();
+			for(int i=0;i<qaList.size();i++)
+			{
+				if(qaList.get(i).correct)
+				{
+					trueList.add(qaList.get(i).q.question_content);
+				}
+				else
+				{
+					falseList.add(qaList.get(i).q.question_content);					
+				}
+			}
+			collString[count][0]=trueList.toArray(new String[0]);
+			collString[count][1]=falseList.toArray(new String[0]);
+			count++;
+		}
+		System.out.println("Produce "+count+" conceptpaths for pertrain ");
+	}
+	
+	
+	public void PreTrain()
+	{
+		PrepareToTrain();
+		int Epoch=300;
+		int minibranchsize=512;
+		int branch=collString.length/minibranchsize;
+		int random_data_each_epoch=collString.length*2;
+		double pretrain_gamma=1e-7;
+		for(int epoch=0;epoch<Epoch;epoch++)
+		{
+			long start=System.currentTimeMillis();
+			for(int i=0;i<random_data_each_epoch;i++)
+			{
+				int a=rand.nextInt(collString.length);
+				int b=rand.nextInt(collString.length);	
+				String[][] tmp=collString[a];
+				collString[a]=collString[b];
+				collString[b]=tmp;
+			}
+			double cost=0;
+			for(int i=0;i<branch;i++)
+			{
+				int sindex=i*minibranchsize;
+				int eindex=(i+1)*minibranchsize-1;
+				if(eindex>=collString.length)
+					eindex=collString.length-1;
+
+				cost+=OneBranchPreTraining(sindex,eindex,pretrain_gamma);	
+			}
+			long end=System.currentTimeMillis();
+			System.out.println("pretrain epoch "+epoch+" is over at "+(end-start)+" ms, cost is "+cost);
+		}
+	}
+	
+	public double OneBranchPreTraining(int sindex,int eindex,double gamma)
+	{
+		double cost=0;
+		this.InitGradientsForPreTrain();
+		for(int i=sindex;i<=eindex;i++)
+		{
+			cost+=PreTrainCalLoss(collString[i]);
+		}
+		this.UpgradeGradientsForPreTrain(gamma);
+		return cost;
+	}
+	
+	public double PreTrainCalLoss(String[][] contents)
+	{
+		//only for in true
+		
+		double cost=0;
+		
+		double[][][] words=new double[contents[0].length][][];
+		double[][] embs=new double[contents[0].length][];
+		double[][] loss=new double[contents[0].length][];
+		for(int i=0;i<contents[0].length;i++)
+		{		
+			words[i]=Text2Embs(contents[0][i]);
+			embs[i]=textpre.RepresentText(words[i], dim);
+			loss[i]=MatrixTool.VectorDotNum(embs[i], -1);
+		}
+		
+		TrainInter text_traininter=(TrainInter)textpre;
+		
+		for(int i=0;i<contents[0].length;i++)
+		{
+			for(int j=i+1;j<contents[0].length;j++)
+			{
+				double tmp_cost=1-MatrixTool.VectorDot(embs[i], embs[j]);
+				if(tmp_cost<0)
+					continue;
+				text_traininter.CalculateGradient(words[i], loss[j]);
+				text_traininter.CalculateGradient(words[j], loss[i]);
+				cost+=tmp_cost;
+			}
+		}
+		
+		
+		//for true and fales content
+		
+		double[][][] words_f=new double[contents[1].length][][];
+		double[][] embs_f=new double[contents[1].length][];
+		for(int i=0;i<contents[1].length;i++)
+		{
+			words_f[i]=Text2Embs(contents[1][i]);
+			embs_f[i]=textpre.RepresentText(words_f[i], dim);
+		}
+		
+		for(int i=0;i<contents[0].length;i++)
+		{
+			for(int j=0;j<contents[1].length;j++)
+			{
+				double tmp_cost=MatrixTool.VectorDot(embs[i], embs_f[j]);
+				if(tmp_cost<-1)
+					continue;
+				text_traininter.CalculateGradient(words[i], embs_f[j]);
+				text_traininter.CalculateGradient(words_f[j], embs[i]);
+				cost+=tmp_cost;
+			}
+		}
+		
+		
+		return cost;
+	}
+	
+	public void NormL1Embs()
+	{
+		long start=System.currentTimeMillis();
+		for(int i=0;i<this.wordEmbs.length;i++)
+		{
+			double verse_norm1=1./MatrixTool.VectorNorm1(wordEmbs[i]);
+			for(int j=0;j<dim;j++)
+			{
+				wordEmbs[i][j]*=verse_norm1;
+			}
+		}
+		long end=System.currentTimeMillis();
+		System.out.println("norm all embeddings in "+(end-start)+"ms");
+	}
 
 }
+
+
+
+class CountInteger
+{
+	public int count=0;
+};
 

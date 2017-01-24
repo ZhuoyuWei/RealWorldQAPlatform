@@ -1,25 +1,36 @@
 package org.wzy.tool;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 import edu.stanford.nlp.trees.GrammaticalStructure;
 
 import org.wzy.meta.ConceptPath;
 import org.wzy.meta.Question;
+import org.wzy.tool.XMLHistoryQAParser;
+import org.xml.sax.SAXException;
 
 public class IOTool {
 
@@ -347,6 +358,93 @@ public class IOTool {
 		pw.close();
 	}	
 	
+	public static void PrintSimpleQuestionsWithConceptPathsWithEntities(List<Question> qList,List<String> relList,String filename,String code)
+	{
+		PrintWriter pw=null;
+		try {
+			pw = new PrintWriter(filename,code);
+		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		for(int i=0;i<qList.size();i++)
+		{
+			Question q=qList.get(i);
+			if(q.questionID==null||q.equals(""))
+			{
+				pw.print(q.originalQuestionID+",");
+			}
+			else
+			{
+				pw.print(q.questionID+",");
+			}
+			pw.print("\""+q.question_content+"\",");
+			for(int j=0;j<q.answers.length;j++)
+			{
+				pw.print("\""+q.answers[j]+"\",");
+			}
+			pw.print(q.AnswerKey);
+			
+			if(q.ans_paths!=null)
+			{
+				pw.print(",");
+				for(int j=0;j<q.ans_paths.length;j++)
+				{
+					pw.print(q.ans_paths[j].length);
+					for(int k=0;k<q.ans_paths[j].length;k++)
+					{
+						pw.print(" ");
+						ConceptPath cpath=q.ans_paths[j][k];
+						
+						for(int h=0;h<cpath.relationList.size();h++)
+						{
+							if(h==0)
+								pw.print(relList.get(cpath.relationList.get(h)));
+							else
+								pw.print("|"+relList.get(cpath.relationList.get(h)));
+						}
+					}
+					if(j!=q.ans_paths.length-1)
+						pw.print("\t");
+				}
+			}
+			
+			if(q.qlinkList!=null)
+			{
+				pw.print(","+q.qlinkList.size()+"\t");
+				for(int j=0;j<q.qlinkList.size();j++)
+				{
+					if(j==q.qlinkList.size()-1)
+					{
+						pw.print(q.qlinkList.get(j).surface_name.replaceAll("[\\s]+", "_"));
+					}
+					else
+					{
+						pw.print(q.qlinkList.get(j).surface_name.replaceAll("[\\s]+", "_")+" ");						
+					}
+				}
+			}
+			if(q.alinkLists!=null)
+			{
+				pw.print(","+q.alinkLists.length);
+				for(int j=0;j<q.alinkLists.length;j++)
+				{
+					pw.print("\t"+q.alinkLists[j].size());
+					for(int k=0;k<q.alinkLists[j].size();k++)
+					{
+						pw.print(" "+q.alinkLists[j].get(k).surface_name.replaceAll("[\\s]+", "_"));
+					}
+				}
+			}
+			
+			pw.println();
+			
+			
+		}
+		pw.close();
+	}	
+
+	
 	public static List<Question> ReadSimpleQuestionsCVSWithConceptPaths(String filename,String code)
 	{
 		List<Question> qList=new ArrayList<Question>();
@@ -421,5 +519,204 @@ public class IOTool {
 		}
 		return qList;
 	}
+	
+	public static void PrintWrongQuestionIdWithPredict(List<Question> qList,String filename,String code) throws FileNotFoundException, UnsupportedEncodingException
+	{
+		PrintWriter pw=new PrintWriter(filename,code);
+		for(int i=0;i<qList.size();i++)
+		{
+			Question q=qList.get(i);
+			if(q.AnswerKey==q.predict_answer)
+				continue;
+			pw.println(q.questionID+"\t"+q.AnswerKey+"\t"+q.predict_answer);
+		}
+		pw.close();
+	}
+	
+	public static void PrintQuestionSnippetFromLucene(List<Question> qList,String filename,String code) throws FileNotFoundException, UnsupportedEncodingException
+	{
+		PrintWriter pw=new PrintWriter(filename,code);
+		for(int i=0;i<qList.size();i++)
+		{
+			Question q=qList.get(i);
+			pw.println(q.questionID);
+			for(int j=0;j<q.paragraphs.length;j++)
+			{
+				pw.println(q.paragraphs[j]);
+			}
+		}
+		pw.close();
+	}	
+	
+	
+	public static List<Question> ReadXMLQuestion(String filename)
+	{
+		 SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
+		 XMLHistoryQAParser xmlParser=new XMLHistoryQAParser(); 
+         try {
+			SAXParser saxParser = saxParserFactory.newSAXParser();
+			InputStream inputStream = new FileInputStream(new File(filename)); 
+			
+			saxParser.parse(inputStream, xmlParser);
+			
+         } catch (ParserConfigurationException | SAXException | FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+         } catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+         }  
+         return xmlParser.qList;
+	}
+	
+	public static void PrintQuestionsPredictScores(List<Question> qList,String filename,String code) throws FileNotFoundException, UnsupportedEncodingException
+	{
+		PrintWriter pw=new PrintWriter(filename,code);
+		for(int i=0;i<qList.size();i++)
+		{
+			Question q=qList.get(i);
+			pw.print(q.questionID);
+			if(q.scores!=null)
+				for(int j=0;j<q.scores.length;j++)
+				{
+					pw.print("\t"+q.scores[j]);
+				}
+			else
+				for(int j=0;j<4;j++)
+				{
+					pw.print("\t"+0);					
+				}
+			pw.println();
+		}
+		pw.close();
+	}
+	
+	public static void Norming(double[] scores)
+	{
+		double max=0.;
+		double min=Double.MAX_VALUE;
+		for(int i=0;i<scores.length;i++)
+		{
+			if(max<scores[i])
+			{
+				max=scores[i];
+			}
+			if(min>scores[i])
+			{
+				min=scores[i];
+			}
+		}
+		
+		double tmp=max-min;
+		
+		
+		
+		for(int i=0;i<scores.length;i++)
+		{
+			scores[i]-=min;
+			if(tmp>1e-2)
+				scores[i]/=tmp;
+		}
+		
+		
+	}
+	
+	public static void PrintQuestionsPredictScoresNormed(List<Question> qList,String filename,String code) throws FileNotFoundException, UnsupportedEncodingException
+	{
+		PrintWriter pw=new PrintWriter(filename,code);
+		for(int i=0;i<qList.size();i++)
+		{
+			Question q=qList.get(i);
+			pw.print(q.questionID);
+			if(q.scores!=null)
+			{
+				Norming(q.scores);
+				for(int j=0;j<q.scores.length;j++)
+				{
+					pw.print("\t"+q.scores[j]);
+				}
+			}
+			else
+			{
+				for(int j=0;j<4;j++)
+				{
+					pw.print("\t"+0);					
+				}
+			}
+			pw.println();
+		}
+		pw.close();
+	}	
+	
+	
+	public static void RandomPickWrongQuestionsAndPrint(List<Question> testList,List<Question> trainList, double rate,String trainfile,String testfile,String code,boolean conceptPath)
+	{
+		int num=(int)(testList.size()*rate);
+		RandomPickWrongQuestionsAndPrint(testList,trainList,num,trainfile,testfile,code,conceptPath);
+	}
+	
+	public static void RandomPickWrongQuestionsAndPrint(List<Question> testList,List<Question> trainList, int num,String trainfile,String testfile,String code,boolean conceptPath)
+	{
+
+		List<Integer> wrongList=new ArrayList<Integer>();
+		Random rand=new Random();
+		for(int i=0;i<testList.size();i++)
+		{
+			int maxindex=0;
+			Question q=testList.get(i);
+			for(int j=1;j<q.answers.length;j++)
+			{
+				if(q.scores[maxindex]<q.scores[j])
+				{
+					maxindex=j;
+				}
+			}
+			if(maxindex!=q.AnswerKey)
+			{
+				wrongList.add(i);
+			}
+		}
+		
+		Set<Integer> randSet=new HashSet<Integer>();
+		
+		if(num>wrongList.size()/3)
+		{
+			System.err.println("wrong questions are too many");
+		}
+		while(randSet.size()<num)
+		{
+			int randindex=rand.nextInt(wrongList.size());
+			randSet.add(wrongList.get(randindex));
+		}
+		
+		List<Question> leftTest=new ArrayList<Question>();
+		List<Question> bechangedTest=new ArrayList<Question>();
+		for(int i=0;i<testList.size();i++)
+		{
+			if(randSet.contains(i))
+			{
+				bechangedTest.add(testList.get(i));
+			}
+			else
+			{
+				leftTest.add(testList.get(i));
+			}
+		}
+		
+		testList=leftTest;
+		trainList.addAll(bechangedTest);
+		
+		if(conceptPath)
+		{
+			IOTool.PrintSimpleQuestionsWithConceptPaths(trainList, trainfile, code);
+			IOTool.PrintSimpleQuestionsWithConceptPaths(testList, testfile, code);
+		}
+		else
+		{
+			IOTool.PrintSimpleQuestions(trainList, trainfile, code);
+			IOTool.PrintSimpleQuestions(testList, testfile, code);			
+		}
+	}
+	
 	
 }

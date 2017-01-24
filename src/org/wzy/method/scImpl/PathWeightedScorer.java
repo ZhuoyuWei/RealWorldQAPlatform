@@ -27,7 +27,6 @@ import org.wzy.method.KBModel;
 import org.wzy.method.ScoringInter;
 import org.wzy.method.TextRepresentInter;
 import org.wzy.method.TrainInter;
-import org.wzy.method.elImpl.ChineseMaxMatchLinker;
 import org.wzy.method.elImpl.MaxMatchLinker;
 import org.wzy.method.elImpl.NgramEntityLinker;
 import org.wzy.method.rwImpl.BiDirectSearchAll;
@@ -42,12 +41,12 @@ import org.wzy.tool.CoreNLPTool;
 import org.wzy.tool.IOTool;
 import org.wzy.tool.MatrixTool;
 
-public class PathEmbScorer implements ScoringInter{
+public class PathWeightedScorer implements ScoringInter{
 	
 	public KBModel kbModel;
 	
-	public TextRepresentInter textpre;
-	public TextRepresentInter pathpre;	
+	//public TextRepresentInter textpre;
+	//public TextRepresentInter pathpre;	
 	
 	//word embedding
 	public Map<String,Integer> word2index;
@@ -71,9 +70,10 @@ public class PathEmbScorer implements ScoringInter{
 	public double[] pathGradients;	
 	public Map<ConceptPath,Integer> path2index;
 	public List<ConceptPath> index2path;
-	public boolean weightpath=false;
 	
 	public Random rand=new Random();
+	
+	public double l2C=10.;
 	
 	
 
@@ -176,14 +176,8 @@ public class PathEmbScorer implements ScoringInter{
 			kbm.entity_linker=new MaxMatchLinker();
 			break;
 		}
-		case "chmax":
-		{
-			kbm.entity_linker=new ChineseMaxMatchLinker();
-			break;
-		}
 		}
 		kbm.entity_linker.SetEntityAndRelationMap(kbm.entity2id, kbm.relation2id);
-		System.out.println("kbm wzy debug "+kbm.entity2id.size());
 		
 		String randomwalk=paraMap.get("randomwalk");
 		switch(randomwalk)
@@ -239,7 +233,7 @@ public class PathEmbScorer implements ScoringInter{
 		kbModel=kbm;
 		
 		//for embeddings
-		dim=Integer.parseInt(paraMap.get("dim"));
+/*		dim=Integer.parseInt(paraMap.get("dim"));
 		String word_emb_file=paraMap.get("word_emb_file");
 		try {
 			if(word_emb_file!=null)
@@ -309,7 +303,7 @@ public class PathEmbScorer implements ScoringInter{
 		
 		
 		textpre.SetParameters(paraMap);
-		pathpre.SetParameters(paraMap);
+		pathpre.SetParameters(paraMap);*/
 		
 	}
 	
@@ -363,8 +357,8 @@ public class PathEmbScorer implements ScoringInter{
 		
 		//for question
 		//double[][] res_question_words=Text2Embs(qus.question_content+" "+qus.answers[aindex]);
-		double[][] res_question_words=Text2Embs(qus.question_content);
-		double[] rep_question=textpre.RepresentText(res_question_words, dim);
+		//double[][] res_question_words=Text2Embs(qus.question_content);
+		//double[] rep_question=textpre.RepresentText(res_question_words, dim);
 		//double[] rep_question=textpre.RepresentText(qus.question_content, dim);
 		
 		//for concept paths
@@ -375,22 +369,10 @@ public class PathEmbScorer implements ScoringInter{
 		
 		for(int i=0;i<paths.length;i++)
 		{
-			double[][] path_relations=ConceptPath2Embs(paths[i]);
-			double[] rep_path=pathpre.RepresentText(path_relations, dim);
-			
-			double simi_score=SimilarBetweenQuestionAndPath(rep_question,rep_path);
-			
-			//if(simi_score<0)
-				//continue;
-			//if(simi_score>0)
-			
-			if(weightpath)
-			{
-				double weight=pathWeights[path2index.get(paths[i])];
-				simi_score*=weight;
-			}
-			
-			score+=simi_score;
+			//double[][] path_relations=ConceptPath2Embs(paths[i]);
+			//double[] rep_path=pathpre.RepresentText(path_relations, dim);
+			double weight=pathWeights[path2index.get(paths[i])];
+			score+=weight;
 		}
 		
 		return score;
@@ -416,10 +398,8 @@ public class PathEmbScorer implements ScoringInter{
 			RemoveNounsinQA(qList);
 		}
 		
-		if(weightpath)
-		{
-			InitPathWeightRandomly(qList);
-		}
+
+		InitPathWeightRandomly(qList);
 		
 		//debug by wzy at 12.28
 		if(debug_print_concept_paths)
@@ -515,42 +495,38 @@ public class PathEmbScorer implements ScoringInter{
 		// TODO Auto-generated method stub
 		
 		//question embedding
-		double[][] res_question_words=Text2Embs(q.question_content);
-		double[] rep_question=textpre.RepresentText(res_question_words, dim);
-		double[] neg_repq=new double[rep_question.length];
+		//double[][] res_question_words=Text2Embs(q.question_content);
+		//double[] rep_question=textpre.RepresentText(res_question_words, dim);
+		//double[] neg_repq=new double[rep_question.length];
 
-		for(int j=0;j<neg_repq.length;j++)
-		{
-			neg_repq[j]=-rep_question[j];
-		}
+		//for(int j=0;j<neg_repq.length;j++)
+		//{
+			//neg_repq[j]=-rep_question[j];
+		//}
 		//pairwise
 		double[] scores=new double[q.answers.length];		
 		ConceptPath[][] paths=new ConceptPath[q.answers.length][];
 		
-		double[][][][] path_relations=new double[paths.length][][][];
-		double[][][] rep_path=new double[paths.length][][];
+		//double[][][][] path_relations=new double[paths.length][][][];
+		//double[][][] rep_path=new double[paths.length][][];
 		for(int i=0;i<paths.length;i++)
 		{
 			
 			//paths[i]=kbModel.MiningPaths(q, i);
 			paths[i]=q.ans_paths[i];		
 			
-			path_relations[i]=new double[paths[i].length][][];
-			rep_path[i]=new double[paths[i].length][];
+			//path_relations[i]=new double[paths[i].length][][];
+			//rep_path[i]=new double[paths[i].length][];
 			
 			for(int j=0;j<paths[i].length;j++)
 			{
-				path_relations[i][j]=ConceptPath2Embs(paths[i][j]);
-				rep_path[i][j]=pathpre.RepresentText(path_relations[i][j], dim);
-				double simi_score=SimilarBetweenQuestionAndPath(rep_question,rep_path[i][j]);
-				//if(simi_score<0)
-					//continue;
-				if(weightpath)
-				{
-					double weight=pathWeights[path2index.get(paths[i][j])];
-					simi_score*=weight;
-				}
-				scores[i]+=simi_score;
+				//path_relations[i][j]=ConceptPath2Embs(paths[i][j]);
+				//rep_path[i][j]=pathpre.RepresentText(path_relations[i][j], dim);
+				//double simi_score=SimilarBetweenQuestionAndPath(rep_question,rep_path[i][j]);
+
+				double weight=pathWeights[path2index.get(paths[i][j])];
+
+				scores[i]+=weight;
 			}
 		}
 		
@@ -566,138 +542,32 @@ public class PathEmbScorer implements ScoringInter{
 				if(paircost<1e-10)
 					continue;
 				
-				TrainInter path_traininter=(TrainInter)pathpre;
-				TrainInter text_traininter=(TrainInter)textpre;
-				
-				
-				if(weightpath)
+
+				//for right answer
+				for(int j=0;j<paths[q.AnswerKey].length;j++)
 				{
-					//for right answer
-					for(int j=0;j<paths[q.AnswerKey].length;j++)
-					{
-						ConceptPath path=paths[q.AnswerKey][j];
-						int pathindex=path2index.get(path);
-						double weight=pathWeights[pathindex];
+					ConceptPath path=paths[q.AnswerKey][j];
+					int pathindex=path2index.get(path);
+					double weight=pathWeights[pathindex];
 						
-						double[] neg_repq_weighted=new double[neg_repq.length];
-						for(int k=0;k<dim;k++)
-						{
-							neg_repq_weighted[k]=weight*neg_repq[k];
-						}
 						
-						path_traininter.CalculateGradient(path_relations[q.AnswerKey][j], neg_repq_weighted);
-						
-						double[] neg_path_weighted=new double[dim];
-						for(int k=0;k<dim;k++)
-						{
-							neg_path_weighted[k]=-rep_path[q.AnswerKey][j][k]*weight;
-						}
-						text_traininter.CalculateGradient(res_question_words, neg_path_weighted);
-						
-						//for path weight
-						double simi_score=SimilarBetweenQuestionAndPath(rep_question,rep_path[q.AnswerKey][j]);
-						pathGradients[pathindex]-=simi_score;
-					}
-					
-				
-					
-					//for wrong answer
-					for(int j=0;j<paths[i].length;j++)
-					{
-						ConceptPath path=paths[i][j];
-						int pathindex=path2index.get(path);
-						double weight=pathWeights[pathindex];
-						double[] rep_question_weighted=new double[rep_question.length];
-						for(int k=0;k<dim;k++)
-						{
-							rep_question_weighted[k]=weight*rep_question[k];
-						}
-						path_traininter.CalculateGradient(path_relations[i][j], rep_question_weighted);
-						double[] rep_path_weighted=new double[rep_path[i][j].length];
-						for(int k=0;k<dim;k++)
-						{
-							rep_path_weighted[k]=weight*rep_path[i][j][k];
-						}						
-						text_traininter.CalculateGradient(res_question_words, rep_path_weighted);
-						
-						//for path weight
-						double simi_score=SimilarBetweenQuestionAndPath(rep_question,rep_path[i][j]);
-						pathGradients[pathindex]+=simi_score;
-					}	
-				}
-				else
-				{
-					//for right answer
-					for(int j=0;j<paths[q.AnswerKey].length;j++)
-					{
-						ConceptPath path=paths[q.AnswerKey][j];
-						path_traininter.CalculateGradient(path_relations[q.AnswerKey][j], neg_repq);
-						
-						double[] neg_path=new double[dim];
-						for(int k=0;k<dim;k++)
-						{
-							neg_path[k]=-rep_path[q.AnswerKey][j][k];
-						}
-						text_traininter.CalculateGradient(res_question_words, neg_path);
-					}
-					
-				
-					
-					//for wrong answer
-					for(int j=0;j<paths[i].length;j++)
-					{
-						ConceptPath path=paths[i][j];
-						path_traininter.CalculateGradient(path_relations[i][j], rep_question);
-						text_traininter.CalculateGradient(res_question_words, rep_path[i][j]);
-					}				
+					//for path weight
+					pathGradients[pathindex]-=1;
 				}
 					
+				
 					
-				
-				
-				
-				//for question
-				/*double[] ans_minus_embs=new double[qus_embs.length];
-				for(int j=0;j<qus_embs.length;j++)
+				//for wrong answer
+				for(int j=0;j<paths[i].length;j++)
 				{
-					ans_minus_embs[j]=ans_embs[i][j]-ans_embs[q.AnswerKey][j];
+					ConceptPath path=paths[i][j];
+					int pathindex=path2index.get(path);
+					double weight=pathWeights[pathindex];
+			
+					//for path weight
+					pathGradients[pathindex]+=1;	
 				}
-				trainInter.CalculateGradient(qus_words_embs, ans_minus_embs);*/
 			}
-			
-			//point wise loss, added by wzy at 2017.1.5
-			/*for(int i=0;i<scores.length;i++)
-			{
-				TrainInter path_traininter=(TrainInter)pathpre;
-				TrainInter text_traininter=(TrainInter)textpre;
-				if(i==q.AnswerKey)
-				{
-					//for right answer
-					for(int j=0;j<paths[q.AnswerKey].length;j++)
-					{
-						ConceptPath path=paths[q.AnswerKey][j];
-						path_traininter.CalculateGradient(path_relations[q.AnswerKey][j], neg_repq);
-						
-						double[] neg_path=new double[dim];
-						for(int k=0;k<dim;k++)
-						{
-							neg_path[k]=-rep_path[q.AnswerKey][j][k];
-						}
-						text_traininter.CalculateGradient(res_question_words, neg_path);
-					}
-				}
-				else
-				{
-					//for wrong answer
-					for(int j=0;j<paths[i].length;j++)
-					{
-						ConceptPath path=paths[i][j];
-						path_traininter.CalculateGradient(path_relations[i][j], rep_question);
-						text_traininter.CalculateGradient(res_question_words, rep_path[i][j]);
-					}	
-				}
-			}*/
-			
 		}
 		return 0;
 	}
@@ -711,29 +581,30 @@ public class PathEmbScorer implements ScoringInter{
 	@Override
 	public TrainInter GetTrainInter() {
 		// TODO Auto-generated method stub
-		return (TrainInter)this.textpre;
+		//return (TrainInter)this.textpre;
+		return null;
 	}
 
 	@Override
 	public void InitAllGradients() {
 		// TODO Auto-generated method stub
-		((TrainInter)(this.textpre)).InitGradients();
-		((TrainInter)(this.pathpre)).InitGradients();
-		if(weightpath)
-		{
+		//((TrainInter)(this.textpre)).InitGradients();
+		//((TrainInter)(this.pathpre)).InitGradients();
+		//if(weightpath)
+		//{
 			pathGradients=new double[pathWeights.length];
-		}
+		//}
 	}
 
 	@Override
 	public void UpgradeGradients(double gamma) {
 		// TODO Auto-generated method stub
-		((TrainInter)(this.textpre)).UpgradeGradients(gamma);
-		((TrainInter)(this.pathpre)).UpgradeGradients(gamma);
-		if(weightpath)
-		{
-			this.UpgradePathWeightGradients(gamma);
-		}
+		//((TrainInter)(this.textpre)).UpgradeGradients(gamma);
+		//((TrainInter)(this.pathpre)).UpgradeGradients(gamma);
+		//if(weightpath)
+		//{
+		this.UpgradePathWeightGradients(gamma);
+		//}
 		//ProjectL2();
 	}
 	
@@ -799,14 +670,12 @@ public class PathEmbScorer implements ScoringInter{
 		{
 			if(Math.abs(pathGradients[i])<1e-6)
 				continue;
-			pathWeights[i]-=gamma*(pathGradients[i]);
+			pathWeights[i]-=gamma*(pathGradients[i]+pathWeights[i]*l2C);
 		}
 	}
 	
 	public void PrintPathWeights(String filename)
 	{
-		if(!weightpath)
-			return;
 		PrintStream ps=null;
 		try {
 			ps = new PrintStream(filename);

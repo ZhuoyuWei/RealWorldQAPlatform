@@ -8,7 +8,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.wzy.method.KBModel;
 import org.wzy.method.ScoringInter;
+import org.wzy.method.elImpl.ChineseMaxMatchLinker;
 import org.wzy.method.scImpl.LuceneScorer;
 import org.wzy.method.scImpl.PathCountScorer;
 import org.wzy.method.scImpl.PathEmbScorer;
@@ -111,7 +113,7 @@ public class QAExperimentPlatform {
 			//Map<String,String> paraMap=new HashMap<String,String>();
 			paraMap.put("embfile", args[2]);
 			//paraMap.put("textModel", "lstm");
-			paraMap.put("textModel", "sum");
+			paraMap.put("textModel", "gru");
 			
 			int dim=Integer.parseInt(args[3]);
 			paraMap.put("dim",args[3]);
@@ -120,7 +122,7 @@ public class QAExperimentPlatform {
 			paraMap.put("inSize", dim+"");
 			paraMap.put("outSize", dim+"");
 			
-			paraMap.put("typeLabel","1");
+			paraMap.put("typeLabel","0");
 		
 			paraMap.put("scale","0.1");
 			paraMap.put("miu","0");
@@ -154,7 +156,8 @@ public class QAExperimentPlatform {
 			paraMap.put("entityFile", args[2]);
 			paraMap.put("relationFile", args[3]);
 			paraMap.put("factFile", args[4]);
-			paraMap.put("entitylink", "ngram");
+			//paraMap.put("entitylink", "chmax");
+			paraMap.put("entitylink", "max");			
 			paraMap.put("randomwalk", args[10]);
 
 			if(debug_flag)
@@ -178,7 +181,7 @@ public class QAExperimentPlatform {
 			paraMap.put("inSize", dim+"");
 			paraMap.put("outSize", dim+"");
 			
-			paraMap.put("typeLabel","1");
+			paraMap.put("typeLabel","0");
 		
 			paraMap.put("scale","0.1");
 			paraMap.put("miu","0");
@@ -199,11 +202,13 @@ public class QAExperimentPlatform {
 		
 		qaframe.scorer.InitScorer(paraMap);
 		qaframe.scorer.PreProcessingQuestions(questionList);
+		System.out.println("entity pair "+KBModel.has_entity_count+" in total question "+questionList.size());
+		
 		
 		//for debug concept paths
 		IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[0], args[11]+".concept."+args[10], "utf8");
 		IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[1], args[12]+".concept."+args[10], "utf8");		
-		
+		System.exit(-1);
 		//test read
 		/*List<Question> tmp0=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[11]+".withpath", "utf8");
 		List<Question> tmp1=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[12]+".withpath", "utf8");	

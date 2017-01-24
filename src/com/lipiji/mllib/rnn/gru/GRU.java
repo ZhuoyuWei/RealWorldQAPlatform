@@ -1,10 +1,12 @@
 package com.lipiji.mllib.rnn.gru;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 import org.jblas.DoubleMatrix;
 import org.jblas.MatrixFunctions;
+import org.wzy.method.trImpl.GRURepresentation;
 
 import com.lipiji.mllib.layers.MatIniter;
 import com.lipiji.mllib.layers.MatIniter.Type;
@@ -31,6 +33,43 @@ public class GRU implements Serializable {
     
     private DoubleMatrix Why;
     private DoubleMatrix by;
+    
+    DoubleMatrix gWxr;// = new DoubleMatrix(Wxr.rows, Wxr.columns);
+    DoubleMatrix gWhr;// = new DoubleMatrix(Whr.rows, Whr.columns);
+    DoubleMatrix gbr;// = new DoubleMatrix(br.rows, br.columns);
+    
+    DoubleMatrix gWxz;// = new DoubleMatrix(Wxz.rows, Wxz.columns);
+    DoubleMatrix gWhz;// = new DoubleMatrix(Whz.rows, Whz.columns);
+    DoubleMatrix gbz;// = new DoubleMatrix(bz.rows, bz.columns);
+    
+    DoubleMatrix gWxh;// = new DoubleMatrix(Wxh.rows, Wxh.columns);
+    DoubleMatrix gWhh;// = new DoubleMatrix(Whh.rows, Whh.columns);
+    DoubleMatrix gbh;// = new DoubleMatrix(bh.rows, bh.columns);
+    
+    DoubleMatrix gWhy;// = new DoubleMatrix(Why.rows, Why.columns);
+    DoubleMatrix gby;// = new DoubleMatrix(by.rows, by.columns);
+    
+    public List<double[][]> gwords;
+    public List<double[][]> swords;
+    
+    public void InitGradients()
+    {
+        gWxr = new DoubleMatrix(Wxr.rows, Wxr.columns);
+        gWhr = new DoubleMatrix(Whr.rows, Whr.columns);
+        gbr = new DoubleMatrix(br.rows, br.columns);
+        
+        gWxz = new DoubleMatrix(Wxz.rows, Wxz.columns);
+        gWhz = new DoubleMatrix(Whz.rows, Whz.columns);
+        gbz = new DoubleMatrix(bz.rows, bz.columns);
+        
+        gWxh = new DoubleMatrix(Wxh.rows, Wxh.columns);
+        gWhh = new DoubleMatrix(Whh.rows, Whh.columns);
+        gbh = new DoubleMatrix(bh.rows, bh.columns);
+        
+        gWhy = new DoubleMatrix(Why.rows, Why.columns);
+        gby = new DoubleMatrix(by.rows, by.columns);
+    }
+    
     
     public GRU(int inSize, int outSize, MatIniter initer) {
         this.inSize = inSize;
@@ -66,7 +105,7 @@ public class GRU implements Serializable {
         return inSize;
     }
 
-    private int getOutSize() {
+    public int getOutSize() {
         return outSize;
     }
     
@@ -74,7 +113,7 @@ public class GRU implements Serializable {
         return deSize;
     }
     
-    public void active(int t, Map<String, DoubleMatrix> acts) {
+    /*public void active(int t, Map<String, DoubleMatrix> acts) {
         DoubleMatrix x = acts.get("x" + t);
         DoubleMatrix preH = null;
         if (t == 0) {
@@ -92,98 +131,174 @@ public class GRU implements Serializable {
         acts.put("z" + t, z);
         acts.put("gh" + t, gh);
         acts.put("h" + t, h);
-    }
+    }*/
     
-    public void bptt(Map<String, DoubleMatrix> acts, int lastT, double lr) {
+    public void active(DoubleMatrix[] xs,
+    				   DoubleMatrix[] hs,
+    				   DoubleMatrix[] rs,
+    				   DoubleMatrix[] zs,   
+    				   DoubleMatrix[] ghs, 
+    				   int t) {
+        DoubleMatrix x = xs[t];
+        DoubleMatrix preH = null;
+        if (t == 0) {
+            preH = new DoubleMatrix(1, getOutSize());
+        } else {
+            preH = hs[t-1];
+        }
+        
+      //  System.out.println("\tbr "+br);
+        
+        DoubleMatrix r = Activer.logistic(x.mmul(Wxr).add(preH.mmul(Whr)).add(br));
+        DoubleMatrix z = Activer.logistic(x.mmul(Wxz).add(preH.mmul(Whz)).add(bz));
+        DoubleMatrix gh = Activer.tanh(x.mmul(Wxh).add(r.mul(preH).mmul(Whh)).add(bh));
+        DoubleMatrix h = (DoubleMatrix.ones(1, z.columns).sub(z)).mul(preH).add(z.mul(gh));
+        
+        /*acts.put("r" + t, r);
+        acts.put("z" + t, z);
+        acts.put("gh" + t, gh);
+        acts.put("h" + t, h);*/
+      //  System.out.println(rs+"\t"+zs+"\t"+ghs+"\t"+hs);
+        rs[t]=r;
+        zs[t]=z;
+        ghs[t]=gh;
+        hs[t]=h;
+    }    
+    
+    
+    public void bptt(DoubleMatrix[] xs,
+			   DoubleMatrix[] hs,
+			   DoubleMatrix[] rs,
+			   DoubleMatrix[] zs,   
+			   DoubleMatrix[] ghs,
+			   int lastT, DoubleMatrix lost)
+    {
+    	//DoubleMatrix[] dxs;
+    	DoubleMatrix[] dhs=new DoubleMatrix[hs.length];
+		DoubleMatrix[] drs=new DoubleMatrix[rs.length];
+		DoubleMatrix[] dzs=new DoubleMatrix[zs.length];   
+		DoubleMatrix[] dghs=new DoubleMatrix[ghs.length];
+    	
+    	
         for (int t = lastT; t > -1; t--) {
-            DoubleMatrix py = acts.get("py" + t);
+            /*DoubleMatrix py = acts.get("py" + t);
             DoubleMatrix y = acts.get("y" + t);
             DoubleMatrix deltaY = py.sub(y);
             acts.put("dy" + t, deltaY);
-            
+            */
+        	
+        	DoubleMatrix deltaY = lost;
+        	
             // cell output errors
-            DoubleMatrix h = acts.get("h" + t);
-            DoubleMatrix z = acts.get("z" + t);
-            DoubleMatrix r = acts.get("r" + t);
-            DoubleMatrix gh = acts.get("gh" + t);
+            DoubleMatrix h = hs[t];
+            DoubleMatrix z =zs[t];
+            DoubleMatrix r = rs[t];
+            DoubleMatrix gh = ghs[t];
             
             DoubleMatrix deltaH = null;
             if (t == lastT) {
                 deltaH = Why.mmul(deltaY.transpose()).transpose();
             } else {
-                DoubleMatrix lateDh = acts.get("dh" + (t + 1));
-                DoubleMatrix lateDgh = acts.get("dgh" + (t + 1));
-                DoubleMatrix lateDr = acts.get("dr" + (t + 1));
-                DoubleMatrix lateDz = acts.get("dz" + (t + 1));
-                DoubleMatrix lateR = acts.get("r" + (t + 1));
-                DoubleMatrix lateZ = acts.get("z" + (t + 1));
-                deltaH = Why.mmul(deltaY.transpose()).transpose()
-                        .add(Whr.mmul(lateDr.transpose()).transpose())
+                DoubleMatrix lateDh = dhs[t+1];
+                DoubleMatrix lateDgh = dghs[t+1];
+                DoubleMatrix lateDr = drs[t+1];
+                DoubleMatrix lateDz = dzs[t+1];
+                DoubleMatrix lateR = rs[t+1];
+                DoubleMatrix lateZ = zs[t+1];
+                //deltaH = Why.mmul(deltaY.transpose()).transpose().add
+                deltaH =(Whr.mmul(lateDr.transpose()).transpose())
                         .add(Whz.mmul(lateDz.transpose()).transpose())
                         .add(Whh.mmul(lateDgh.mul(lateR).transpose()).transpose())
                         .add(lateDh.mul(DoubleMatrix.ones(1, lateZ.columns).sub(lateZ)));
             }
-            acts.put("dh" + t, deltaH);
+            //acts.put("dh" + t, deltaH);
+            dhs[t]=deltaH;
             
             // gh
             DoubleMatrix deltaGh = deltaH.mul(z).mul(deriveTanh(gh));
-            acts.put("dgh" + t, deltaGh);
+            //acts.put("dgh" + t, deltaGh);
+            dghs[t]=deltaGh;
             
             DoubleMatrix preH = null;
             if (t > 0) {
-                preH = acts.get("h" + (t - 1));
+                //preH = acts.get("h" + (t - 1));
+            	preH=hs[t-1];
             } else {
                 preH = DoubleMatrix.zeros(1, h.length);
             }
             
             // reset gates
             DoubleMatrix deltaR = (Whh.mmul(deltaGh.mul(preH).transpose()).transpose()).mul(deriveExp(r));
-            acts.put("dr" + t, deltaR);
+            //acts.put("dr" + t, deltaR);
+            drs[t]=deltaR;
             
             // update gates
             DoubleMatrix deltaZ = deltaH.mul(gh.sub(preH)).mul(deriveExp(z));
-            acts.put("dz" + t, deltaZ);            
+            //acts.put("dz" + t, deltaZ); 
+            dzs[t]=deltaZ;
         }
-        updateParameters(acts, lastT, lr);
+        CalculateParameterGradients(xs,hs,rs,
+        				 dhs,drs,dzs,dghs,
+        				 lastT,lost);
     }
     
-    private void updateParameters(Map<String, DoubleMatrix> acts, int lastT, double lr) {
-        DoubleMatrix gWxr = new DoubleMatrix(Wxr.rows, Wxr.columns);
-        DoubleMatrix gWhr = new DoubleMatrix(Whr.rows, Whr.columns);
-        DoubleMatrix gbr = new DoubleMatrix(br.rows, br.columns);
-        
-        DoubleMatrix gWxz = new DoubleMatrix(Wxz.rows, Wxz.columns);
-        DoubleMatrix gWhz = new DoubleMatrix(Whz.rows, Whz.columns);
-        DoubleMatrix gbz = new DoubleMatrix(bz.rows, bz.columns);
-        
-        DoubleMatrix gWxh = new DoubleMatrix(Wxh.rows, Wxh.columns);
-        DoubleMatrix gWhh = new DoubleMatrix(Whh.rows, Whh.columns);
-        DoubleMatrix gbh = new DoubleMatrix(bh.rows, bh.columns);
-        
-        DoubleMatrix gWhy = new DoubleMatrix(Why.rows, Why.columns);
-        DoubleMatrix gby = new DoubleMatrix(by.rows, by.columns);
-        
+    private void CalculateParameterGradients(DoubleMatrix[] xs,
+			   					  DoubleMatrix[] hs,
+			   					  DoubleMatrix[] rs,
+			   					  //DoubleMatrix[] zs,   
+			   					  //DoubleMatrix[] ghs,  		
+    							  DoubleMatrix[] dhs,
+    							  DoubleMatrix[] drs,
+    							  DoubleMatrix[] dzs,  
+    							  DoubleMatrix[] dghs,
+    							  int lastT,DoubleMatrix lost) 
+    {        
+    	
+    	 DoubleMatrix[] gx=null;
+         
+         if(GRURepresentation.update_wordembs)
+         {
+         	gx=new DoubleMatrix[xs.length];
+         	for(int i=0;i<=lastT;i++)
+         	{
+         		gx[i]=new DoubleMatrix(xs[i].rows,xs[i].columns);
+         	}
+         }
+    	
         for (int t = 0; t < lastT + 1; t++) {
-            DoubleMatrix x = acts.get("x" + t).transpose();
-            gWxr = gWxr.add(x.mmul(acts.get("dr" + t)));
-            gWxz = gWxz.add(x.mmul(acts.get("dz" + t)));
-            gWxh = gWxh.add(x.mmul(acts.get("dgh" + t)));
+            DoubleMatrix x = xs[t].transpose();
+            gWxr = gWxr.add(x.mmul(drs[t]));
+            gWxz = gWxz.add(x.mmul(dzs[t]));
+            gWxh = gWxh.add(x.mmul(dghs[t]));
+            
+            if(GRURepresentation.update_wordembs)
+            {
+            	gx[t]=gx[t].add(drs[t].mmul(gWxr));
+            	gx[t]=gx[t].add(dzs[t].mmul(gWxz));
+            	gx[t]=gx[t].add(dghs[t].mmul(gWxh));
+            }
             
             if (t > 0) {
-                DoubleMatrix preH = acts.get("h" + (t - 1)).transpose();
-                gWhr = gWhr.add(preH.mmul(acts.get("dr" + t)));
-                gWhz = gWhz.add(preH.mmul(acts.get("dz" + t)));
-                gWhh = gWhh.add(acts.get("r" + t).transpose().mul(preH).mmul(acts.get("dgh" + t)));
+                DoubleMatrix preH = hs[t-1].transpose();
+                gWhr = gWhr.add(preH.mmul(drs[t]));
+                gWhz = gWhz.add(preH.mmul(dzs[t]));
+                gWhh = gWhh.add(rs[t].transpose().mul(preH).mmul(dghs[t]));
             }
-            gWhy = gWhy.add(acts.get("h" + t).transpose().mmul(acts.get("dy" + t)));
+            if(t==lastT)
+            {
+            	gWhy = gWhy.add(hs[t].transpose().mmul(lost));
+            }
             
-            gbr = gbr.add(acts.get("dr" + t));
-            gbz = gbz.add(acts.get("dz" + t));
-            gbh = gbh.add(acts.get("dgh" + t));
-            gby = gby.add(acts.get("dy" + t));
+            gbr = gbr.add(drs[t]);
+            gbz = gbz.add(dzs[t]);
+            gbh = gbh.add(dghs[t]);
+            if(t==lastT)
+            {            
+            	gby = gby.add(lost);
+            }
         }
         
-        Wxr = Wxr.sub(clip(gWxr.div(lastT)).mul(lr));
+        /*Wxr = Wxr.sub(clip(gWxr.div(lastT)).mul(lr));
         Whr = Whr.sub(clip(gWhr.div(lastT < 2 ? 1 : (lastT - 1))).mul(lr));
         br = br.sub(clip(gbr.div(lastT)).mul(lr));
         
@@ -196,7 +311,65 @@ public class GRU implements Serializable {
         bh = bh.sub(clip(gbh.div(lastT)).mul(lr));
         
         Why = Why.sub(clip(gWhy.div(lastT)).mul(lr));
-        by = by.sub(clip(gby.div(lastT)).mul(lr));
+        by = by.sub(clip(gby.div(lastT)).mul(lr));*/
+        
+        if(GRURepresentation.update_wordembs)
+        {
+        	
+        	double[][] gx_double=new double[gx.length][];
+        	for(int i=0;i<gx.length;i++)
+        	{
+        		gx_double[i]=gx[i].toArray();
+        	}
+        	gwords.add(gx_double);
+        	//swords.add(words);
+        }
+        
+    }
+    
+    public void UpdateParameters(double lr)
+    {
+    	Wxr = Wxr.sub(clip(gWxr).mul(lr));
+        Whr = Whr.sub(clip(gWhr).mul(lr));
+        br = br.sub(clip(gbr).mul(lr));
+        
+        Wxz = Wxz.sub(clip(gWxz).mul(lr));
+        Whz = Whz.sub(clip(gWhz).mul(lr));
+        bz = bz.sub(clip(gbz).mul(lr));
+        
+        Wxh = Wxh.sub(clip(gWxh).mul(lr));
+        Whh = Whh.sub(clip(gWhh).mul(lr));
+        bh = bh.sub(clip(gbh).mul(lr));
+        
+        Why = Why.sub(clip(gWhy).mul(lr));
+        by = by.sub(clip(gby).mul(lr));
+        
+        if(GRURepresentation.update_wordembs)
+        {
+        	if(swords!=null&&gwords!=null&&swords.size()==gwords.size())
+        	{
+        		for(int i=0;i<swords.size();i++)
+        		{
+        			double[][] xs=swords.get(i);
+        			double[][] gxs=gwords.get(i);
+        			
+        			if(xs.length==gxs.length)
+        			{
+        				for(int j=0;j<xs.length;j++)
+        				{
+        					//xs[j]=xs[j].sub(clip(gxs[j]).mul(lr));
+        					for(int k=0;k<xs[j].length;k++)
+        					{
+        						//clip?
+        						
+        						xs[j][k]-=gxs[j][k]*lr;
+        					}
+        				}
+        			}
+        		}
+        	}
+        }
+        
     }
     
     private DoubleMatrix deriveExp(DoubleMatrix f) {
@@ -215,5 +388,9 @@ public class GRU implements Serializable {
     
     public DoubleMatrix decode (DoubleMatrix ht) {
         return Activer.softmax(ht.mmul(Why).add(by));
+    }
+    public DoubleMatrix LastY(DoubleMatrix ht)
+    {
+    	return ht.mmul(Why).add(by);
     }
 }

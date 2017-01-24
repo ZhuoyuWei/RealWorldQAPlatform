@@ -15,4 +15,5 @@ public interface ScoringInter {
 	public TrainInter GetTrainInter();
 	public void InitAllGradients();
 	public void UpgradeGradients(double gamma);
+	public void InitPathWeightRandomly(List<Question> questionList);
 }

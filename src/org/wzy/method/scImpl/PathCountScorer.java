@@ -156,4 +156,10 @@ public class PathCountScorer implements ScoringInter{
 		
 	}
 
+	@Override
+	public void InitPathWeightRandomly(List<Question> questionList) {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

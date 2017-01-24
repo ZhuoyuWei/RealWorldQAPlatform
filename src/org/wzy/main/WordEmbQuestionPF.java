@@ -14,7 +14,7 @@ import org.wzy.method.ScoringInter;
 import org.wzy.method.scImpl.LuceneScorer;
 import org.wzy.method.scImpl.PathCountScorer;
 import org.wzy.method.scImpl.PathEmbScorer;
-import org.wzy.method.scImpl.PathWeightedScorer;
+import org.wzy.method.scImpl.TransEScorer;
 import org.wzy.method.scImpl.WordEmbScorer;
 import org.wzy.method.trImpl.LSTMRepresentation;
 import org.wzy.method.trImpl.SumRepresentation;
@@ -26,7 +26,7 @@ import org.wzy.fun.QAFramework;
 import org.wzy.fun.TrainModel;
 import org.wzy.meta.*;
 
-public class QAExperimentReadPath {
+public class WordEmbQuestionPF {
 
 	public static String[] models={"LuceneScorer"};
 	public static boolean debug_flag=true;
@@ -44,7 +44,7 @@ public class QAExperimentReadPath {
 		qaframe.Training(train_questions,valid_questions);
 		
 		//wzy_debug
-		//((WordEmbScorer)qaframe.scorer).wzy_debug_ZeroPrint();
+		((WordEmbScorer)qaframe.scorer).wzy_debug_ZeroPrint();
 	}
 	
 	public static Map<String,String> ReadConfigureFile(String filename) throws IOException
@@ -99,10 +99,6 @@ public class QAExperimentReadPath {
 		int modelindex=Integer.parseInt(args[1]);
 		//qaframe.scorer=(ScoringInter) Class.forName(models[modelindex]).newInstance();
 		Map<String,String> paraMap=new HashMap<String,String>();
-		
-		String traindata_file=null;
-		String testdata_file=null;
-		
 		switch(modelindex)
 		{
 		//lucene searching
@@ -115,6 +111,7 @@ public class QAExperimentReadPath {
 		//text inference
 		case 1:{
 			qaframe.scorer=new WordEmbScorer();
+			//qaframe.scorer=new TransEScorer();
 			//Map<String,String> paraMap=new HashMap<String,String>();
 			paraMap.put("embfile", args[2]);
 			//paraMap.put("textModel", "lstm");
@@ -160,8 +157,8 @@ public class QAExperimentReadPath {
 			qaframe.scorer=new PathEmbScorer();
 			paraMap.put("entityFile", args[2]);
 			paraMap.put("relationFile", args[3]);
-			//paraMap.put("factFile", args[4]);
-			paraMap.put("entitylink", "max");
+			paraMap.put("factFile", args[4]);
+			paraMap.put("entitylink", "ngram");
 			paraMap.put("randomwalk", args[10]);
 
 			if(debug_flag)
@@ -192,51 +189,29 @@ public class QAExperimentReadPath {
 			paraMap.put("sigma","1");
 			
 			
-			traindata_file=args[11]+".concept."+args[10];
-			testdata_file=args[12]+".concept."+args[10];
-			
 			break;
 			
 		}
-		case 4:
-		{
-			qaframe.scorer=new PathWeightedScorer();
-			paraMap.put("entityFile", args[2]);
-			paraMap.put("relationFile", args[3]);
-			//paraMap.put("factFile", args[4]);
-			paraMap.put("entitylink", "ngram");
-			
-			if(debug_flag)
-			{
-				//paraMap.put("mid2name_file", args[5]);
-				paraMap.put("logfile", args[5]);
-			}			
-			
-			paraMap.put("randomwalk", args[6]);
-
-
-			
-			traindata_file=args[7]+".concept."+args[6];
-			testdata_file=args[8]+".concept."+args[6];			
-			
-			break;
-			
-		}		
-		
-		
 		}
 		//for ai2 original dataset
-		qusLists[0]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(traindata_file, "utf8");
-		qusLists[1]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(testdata_file, "utf8");
+		//qusLists[0]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[4], "utf8");
+		//qusLists[1]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[5], "utf8");
+		//for the last test, need read cvs with paths
+		qusLists[0]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[4], "utf8");
+		qusLists[1]=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[5], "utf8");
+		
+		
 		questionList.clear();
 		questionList.addAll(qusLists[0]);
 		questionList.addAll(qusLists[1]);
 		System.out.println("Dataset describtion: train "+qusLists[0].size()+"\ttest "+qusLists[1].size());
 		
 		qaframe.scorer.InitScorer(paraMap);
-		//qaframe.scorer.PreProcessingQuestions(questionList);
-		//((PathEmbScorer)qaframe.scorer).RemoveNounsinQA(questionList);
-		qaframe.scorer.InitPathWeightRandomly(questionList);
+		qaframe.scorer.PreProcessingQuestions(questionList);
+		
+		//for debug concept paths
+		//IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[0], args[11]+".concept."+args[10], "utf8");
+		//IOTool.PrintSimpleQuestionsWithConceptPaths(qusLists[1], args[12]+".concept."+args[10], "utf8");		
 		
 		//test read
 		/*List<Question> tmp0=IOTool.ReadSimpleQuestionsCVSWithConceptPaths(args[11]+".withpath", "utf8");
@@ -262,28 +237,18 @@ public class QAExperimentReadPath {
 		
 		//for train
 		Training(qaframe,qusLists[0],qusLists[1]);
-		//((PathEmbScorer)qaframe.scorer).PrintPathWeights("weight.log");
 		//System.exit(-1);
-		
-		//debug concept paths in train and test dataset, by wzy at 1.5
-		/*List<Question> goldQuestionList=qaframe.RightAnsweringQuestions(qusLists[0]);
-		((PathEmbScorer)qaframe.scorer).RemovePathsUseless(questionList);
-		int[] test_results=qaframe.AnswerQuestions(qusLists[1]);
-		((PathEmbScorer)qaframe.scorer).PickRightPaths2Questions(goldQuestionList, qusLists[1],test_results, "path_traintest.log");*/
 		
 		
 		int[] results=qaframe.AnswerQuestions(qusLists[1]);
 		int[] ans=qaframe.GetAnswers(qusLists[1]);
+		
 		double score=qaframe.Evluation(results, ans);
-		
-		
 		System.out.println("Correct rate is "+score);
 		
-		//IOTool.RandomPickWrongQuestionsAndPrint(qusLists[1], qusLists[0], Double.parseDouble(args[13]), traindata_file+"."+args[13], testdata_file+"."+args[13], "utf8", true);
 		
-		//print last scores
 		try {
-			IOTool.PrintQuestionsPredictScoresNormed(qusLists[1], args[13], "utf8");
+			IOTool.PrintQuestionsPredictScoresNormed(qusLists[1], args[6], "utf8");
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -291,9 +256,6 @@ public class QAExperimentReadPath {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		
-		
 	}
 	
 }

@@ -216,7 +216,8 @@ public class LSTMRepresentation implements TextRepresentInter, TrainInter{
 	@Override
 	public void CalculateGradient(String text, double[] loss) {
 		// TODO Auto-generated method stub
-		
+		double[][] wordembs=Text2Embs(text);
+		CalculateGradient(wordembs,loss);
 	}
 
 

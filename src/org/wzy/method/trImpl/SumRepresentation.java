@@ -2,6 +2,7 @@ package org.wzy.method.trImpl;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -9,6 +10,7 @@ import java.util.Set;
 import org.wzy.meta.NNParameter;
 import org.wzy.method.TextRepresentInter;
 import org.wzy.method.TrainInter;
+import org.wzy.tool.MatrixTool;
 
 public class SumRepresentation implements TextRepresentInter,TrainInter{
 
@@ -27,6 +29,8 @@ public class SumRepresentation implements TextRepresentInter,TrainInter{
 	
 	public boolean hasL2=true;
 	public double C_L2=0.;
+	
+	public boolean normL1=false;
 	
 	@Override
 	public double[] RepresentText(double[][] textEmbs,int dim) {
@@ -73,6 +77,9 @@ public class SumRepresentation implements TextRepresentInter,TrainInter{
 	@Override
 	public void UpgradeGradients(double gamma) {
 		// TODO Auto-generated method stub
+		
+		Set<double[]> wordSet=new HashSet<double[]>();
+		
 		for(int i=0;i<gwords.size();i++)
 		{
 			double[][] wordembs=swords.get(i);
@@ -82,6 +89,28 @@ public class SumRepresentation implements TextRepresentInter,TrainInter{
 				for(int k=0;k<wordembs[j].length;k++)
 				{
 					wordembs[j][k]-=gamma*(gradients[k]+wordembs[j][k]*C_L2*2);
+				}
+				if(normL1)
+				{
+					wordSet.add(wordembs[j]);
+				}
+			}
+		}
+		
+		if(normL1)
+		{
+			Iterator it=wordSet.iterator();
+			while(it.hasNext())
+			{
+				double[] emb=(double[])it.next();
+				double norm1=MatrixTool.VectorNorm1(emb);
+				if(norm1>1)
+				{
+					norm1=1./norm1;
+					for(int i=0;i<emb.length;i++)
+					{
+						emb[i]*=norm1;
+					}
 				}
 			}
 		}
@@ -173,7 +202,7 @@ public class SumRepresentation implements TextRepresentInter,TrainInter{
 	@Override
 	public void CalculateGradient(String text, double[] loss) {
 		// TODO Auto-generated method stub
-		List<Integer> indexList=Text2Index(text);
+/*		List<Integer> indexList=Text2Index(text);
 		for(int i=0;i<indexList.size();i++)
 		{
 			int index=indexList.get(i);
@@ -181,10 +210,10 @@ public class SumRepresentation implements TextRepresentInter,TrainInter{
 			{
 				gradients[index][j]+=loss[j];
 			}
-		}
+		}*/
 		
-		//double[][] wordembs=Text2Embs(text);
-		//CalculateGradient(wordembs,loss);
+		double[][] wordembs=Text2Embs(text);
+		CalculateGradient(wordembs,loss);
 		
 	}
 	@Override

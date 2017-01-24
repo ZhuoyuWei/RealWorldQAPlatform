@@ -3,11 +3,13 @@ package org.wzy.meta;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.wzy.method.EntityLinkInter;
 import org.wzy.tool.CoreNLPTool;
 import org.wzy.tool.ParserTool;
 
@@ -53,6 +55,24 @@ public class Question {
 	public String bagofword_feature_string=null;
 	
 	//For save concept paths
+	
+	//for save the answer
+	public int predict_answer;
+	
+	//for save paragraphs from lucene
+	//public String[][] paragraphs;
+	public String[] paragraphs;
+	
+
+	//for record scores for each candidate answer
+	public double[] scores;
+	
+	//for path-based methods
+	public ConceptPath[][] ans_paths;
+	
+	//for analyze entities
+	public List<NELink> qlinkList;
+	public List<NELink>[] alinkLists;
 	
 	////////////////////Method///////////////////////////
 	public void AI2ParsingString(String content)
@@ -240,7 +260,17 @@ public class Question {
 		}
 	}
 	
-	//for path-based methods
-	public ConceptPath[][] ans_paths;
+
 	
+	public void LinkingNE(EntityLinkInter linker)
+	{
+		this.qlinkList=linker.LinkingString(this.question_content);
+		alinkLists=new List[answers.length];
+		for(int i=0;i<answers.length;i++)
+		{
+			alinkLists[i]=linker.LinkingString(answers[i]);
+		}
+	}
 }
+
+

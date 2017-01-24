@@ -210,4 +210,24 @@ public class MatrixTool {
 		}
 		return matrix;
 	}
+	
+	public static double[] VectorMinus(double[] v1,double[] v2)
+	{
+		double[] res=new double[v1.length];
+		for(int i=0;i<v1.length;i++)
+		{
+			res[i]=v1[i]-v2[i];
+		}
+		return res;
+	}
+	
+	public static double[] VectorDotNum(double[] v,double num)
+	{
+		double[] res=new double[v.length];
+		for(int i=0;i<v.length;i++)
+		{
+			res[i]=num*v[i];
+		}
+		return res;
+	}
 }

@@ -192,6 +192,7 @@ public class KBModel {
 		Map<Integer,List<int[]>> graph=new HashMap<Integer,List<int[]>>();
 		BufferedReader br=new BufferedReader(new InputStreamReader(new FileInputStream(filename),code));
 		String buffer=null;
+		int edgecount=0;
 		while((buffer=br.readLine())!=null)
 		{
 			String[] ss=buffer.split("\t");
@@ -205,6 +206,9 @@ public class KBModel {
 			
 			for(int i=0;i<3;i+=2)
 			{
+				//only direct
+				if(i>0)
+					break;
 				List<int[]> neighborList=graph.get(triplet[i]);
 				if(neighborList==null)
 				{
@@ -223,6 +227,7 @@ public class KBModel {
 					edge[1]=triplet[0];
 				}
 				neighborList.add(edge);
+				edgecount++;
 				
 			}
 			
@@ -237,6 +242,9 @@ public class KBModel {
 		entitysize+=1;
 		relationsize+=1;
 		br.close();
+		
+		System.out.println("edges in knowledge graph is "+edgecount);
+		
 		return graph;
 	}
 	
@@ -276,7 +284,7 @@ public class KBModel {
 	
 	////////////////////////////Random Walk/////////////////////////////////
 
-	
+	public static int has_entity_count=0;
 	////////////////////////Process a Question and an Answer///////////////////////
 	public ConceptPath[] MiningPaths(Question question,int answerIndex)
 	{
@@ -285,6 +293,11 @@ public class KBModel {
 		
 		List<NELink> qllist=entity_linker.LinkingString(question.question_content);
 		List<NELink> allist=entity_linker.LinkingString(question.answers[answerIndex]);
+		
+		if(qllist.size()>0&&allist.size()>0)
+		{
+			has_entity_count++;
+		}
 		
 		List<GroundPath> pathList=new ArrayList<GroundPath>();
 		
